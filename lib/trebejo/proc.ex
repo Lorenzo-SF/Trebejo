@@ -3,9 +3,11 @@ defmodule Trebejo.Proc do
   @moduledoc """
   Process and executable utilities (shell-based operations).
 
-  Pure functions (command availability, VM introspection) are delegated
-  to `Apero.Proc`. This module adds shell-dependent operations: process
-  listing, signalling, lsof, fuser, and log access.
+  Process and executable utilities (shell-based operations).
+
+  Pure functions (command availability, VM introspection) are implemented
+  inline. Shell-dependent operations: process listing, signalling, lsof,
+  fuser, and log access.
 
   All command execution is routed through `Arrea.Command.execute/2`
   (with `validate: false`) so consumers get real timeout cancellation,
@@ -15,43 +17,51 @@ defmodule Trebejo.Proc do
 
   """
 
-  alias Apero.Proc, as: AperoProc
   alias Arrea.Command
   alias Trebejo.OS
 
-  # Pure functions delegated to Apero.Proc
+  # ── Inline implementations (formerly delegated to Apero.Proc) ────────
 
   @doc "Returns `true` if the given command exists in the system `PATH`."
   @spec command_exists?(String.t()) :: boolean()
-  defdelegate command_exists?(cmd), to: AperoProc
+  def command_exists?(cmd) when is_binary(cmd) and byte_size(cmd) > 0,
+    do: System.find_executable(cmd) != nil
+  def command_exists?(_), do: false
 
   @doc "Returns the full path of a command if found, or `nil`."
   @spec which(String.t()) :: String.t() | nil
-  defdelegate which(cmd), to: AperoProc
+  def which(cmd), do: System.find_executable(cmd)
 
   @doc "Filters a list of commands to only those available on the system."
   @spec available_commands([String.t()]) :: [String.t()]
-  defdelegate available_commands(commands), to: AperoProc
+  def available_commands(commands) do
+    Enum.filter(commands, &command_exists?/1)
+  end
 
   @doc "Returns a map of `command => path` for all found commands."
   @spec locate_commands([String.t()]) :: %{String.t() => String.t()}
-  defdelegate locate_commands(commands), to: AperoProc
+  def locate_commands(commands) do
+    commands
+    |> Enum.map(&{&1, System.find_executable(&1)})
+    |> Enum.filter(fn {_, path} -> path != nil end)
+    |> Map.new()
+  end
 
   @doc "Returns the OS process ID of the BEAM VM."
   @spec os_pid() :: non_neg_integer()
-  defdelegate os_pid(), to: AperoProc
+  def os_pid, do: :os.getpid() |> List.to_string() |> String.to_integer()
 
   @doc "Returns the number of scheduler threads."
   @spec scheduler_count() :: non_neg_integer()
-  defdelegate scheduler_count(), to: AperoProc
+  def scheduler_count, do: :erlang.system_info(:schedulers_online)
 
   @doc "Returns the VM memory usage in bytes."
   @spec vm_memory() :: non_neg_integer()
-  defdelegate vm_memory(), to: AperoProc
+  def vm_memory, do: :erlang.memory(:total)
 
   @doc "Returns the VM uptime in milliseconds."
   @spec vm_uptime() :: non_neg_integer()
-  defdelegate vm_uptime(), to: AperoProc
+  def vm_uptime, do: :erlang.statistics(:wall_clock) |> elem(1)
 
   @doc "Lists running processes (cross-platform via `ps`)."
   @spec ps(keyword()) :: {:ok, [map()]} | {:error, term()}
