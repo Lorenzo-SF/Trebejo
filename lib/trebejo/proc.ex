@@ -26,6 +26,7 @@ defmodule Trebejo.Proc do
   @spec command_exists?(String.t()) :: boolean()
   def command_exists?(cmd) when is_binary(cmd) and byte_size(cmd) > 0,
     do: System.find_executable(cmd) != nil
+
   def command_exists?(_), do: false
 
   @doc "Returns the full path of a command if found, or `nil`."
