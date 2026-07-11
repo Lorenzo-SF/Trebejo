@@ -1,5 +1,4 @@
 defmodule Trebejo.OS do
-  alias Apero.OS, as: AperoOS
   alias Arrea.Command
 
   @moduledoc """
@@ -31,7 +30,14 @@ defmodule Trebejo.OS do
   Possible values: `:linux`, `:macos`, `:windows`, `:unknown`.
   """
   @spec type() :: os_type()
-  defdelegate type(), to: AperoOS
+  def type do
+    case :os.type() do
+      {:unix, :darwin} -> :macos
+      {:unix, :linux} -> :linux
+      {:win32, _} -> :windows
+      _ -> :unknown
+    end
+  end
 
   @doc """
   Returns the CPU architecture of the current machine.
@@ -56,7 +62,10 @@ defmodule Trebejo.OS do
   Returns the machine hostname.
   """
   @spec hostname() :: binary()
-  defdelegate hostname(), to: AperoOS
+  def hostname do
+    {:ok, hostname} = :inet.gethostname()
+    List.to_string(hostname)
+  end
 
   @doc """
   Returns the OS kernel version string, or `"unknown"` if unavailable.
