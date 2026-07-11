@@ -8,8 +8,8 @@ Apero was split into two packages:
 
 | Package | Contents |
 |---------|----------|
-| **apero** (≥ 3.0.0) | Pure stdlib wrappers — Env, Conf, Retry, Crypto, Cache, File trees/paths, OS type/hostname, Proc which/command\_exists? |
-| **trebejo** | Shell-dependent operations — Docker, Git, SSH, K8s, Compress, Network, OS info (arch, distro, kernel, cpu, memory), Proc listing/signalling, File watch |
+| **apero** (≥ 3.0.0) | Pure stdlib wrappers — Env, Conf, Retry, Crypto, Cache, File trees/paths, OS type/hostname/distro/container/WSL, Proc which/command\_exists? |
+| **trebejo** | Shell-dependent operations — Docker, Git, SSH, K8s, Compress, Network, OS info (arch, kernel, cpu, memory, root), Proc listing/signalling, File watch |
 
 ## Modules
 
@@ -21,12 +21,13 @@ Apero was split into two packages:
 | `Trebejo.K8s` | Kubernetes resource management |
 | `Trebejo.Compress` | Archive creation and extraction |
 | `Trebejo.Network` | Network interface and connectivity |
-| `Trebejo.OS` | OS metadata: arch, distro, kernel, CPU, memory, info, root, WSL/container detection |
+| `Trebejo.OS` | OS metadata: arch, kernel, CPU, memory, root — shell-based. Pure OS detection (type, hostname, distro, WSL, container) via `Apero.OS` |
 | `Trebejo.Proc` | Process listing, signalling, lsof, fuser, log access |
+| `Trebejo.Packages` | Package installation and detection |
 | `Trebejo.File` | File system watching |
 | `Trebejo.File.IO` | Disk usage reporting |
 
-> Pure functions are delegated to `Apero.*` — this package depends on apero.
+> Shell-based functions use `Arrea.Command` for execution. Pure detection (OS type, hostname, distro) lives in `Apero.OS` — call it directly.
 
 ## Installation
 
