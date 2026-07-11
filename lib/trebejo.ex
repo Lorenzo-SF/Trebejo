@@ -4,7 +4,7 @@ defmodule Trebejo do
 
   Trebejo provides high-level wrappers around common shell commands
   (Docker, Git, SSH, Kubernetes, system inspection) built on top of
-  `Arrea.Command` for execution and `Apero` for pure utilities.
+  `Arrea.Command` for execution.
 
   ## Architecture
 
@@ -12,12 +12,8 @@ defmodule Trebejo do
 
   ```
   Trebejo (shell wrappers)
-    ├── arrea (command execution)
-    └── apero (pure utilities: Env, Crypto, File.Path, etc.)
+    └── arrea (command execution)
   ```
-
-  Unlike `Apero` (which stays dependency-free except for stdlib/hex),
-  Trebejo depends on `Arrea.Command` for all shell execution.
 
   ## Modules
 
@@ -37,15 +33,5 @@ defmodule Trebejo do
 
   ### File
   - `Trebejo.File` — file watching (via Arrea.WorkerSupervisor)
-
-  ## Migration from Apero
-
-  Trebejo v1.0.0 extracts all shell-dependent functionality from Apero v2.x.
-  Consumers that previously called `Apero.Docker.*`, `Apero.Git.*`,
-  the shell-based OS functions (arch, kernel, memory, etc.) or the
-  shell-based Proc functions (ps, kill, lsof, etc.) should now import
-  those functions from `Trebejo.*`.
-
-  For a complete migration guide see Apero's CHANGELOG.
   """
 end
