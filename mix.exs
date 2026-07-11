@@ -38,7 +38,7 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      {:apero, "~> 3.1.0"},
+      {:apero, path: "../apero"},
       {:arrea, "~> 2.2.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
@@ -56,7 +56,7 @@ defmodule Trebejo.MixProject do
       extras: ["README.md", "docs/README.es.md", "CHANGELOG.md", "LICENSE.md"],
       groups_for_modules: [
         Core: [Trebejo, Trebejo.Application],
-        "System & Platform": [Trebejo.OS, Trebejo.Proc],
+        "System & Platform": [Trebejo.OS, Trebejo.Proc, Trebejo.Packages],
         Containers: [Trebejo.Docker],
         Network: [Trebejo.Network, Trebejo.SSH],
         Orchestration: [Trebejo.Kubernetes],

@@ -2,7 +2,11 @@ defmodule Trebejo.Network do
   alias Arrea.Command
 
   @moduledoc """
-  Network operations: ping, DNS, TCP port checks.
+  Network operations: TCP port checks and ICMP ping.
+
+  TCP operations (`port_open?/3`, `scan_ports/3`) use `:gen_tcp` directly.
+  ICMP ping uses `Arrea.Command.execute/2`. For DNS resolution use
+  `Apero.Network.resolve/1` directly.
   """
 
   @type tcp_port :: 0..65_535
@@ -22,32 +26,12 @@ defmodule Trebejo.Network do
     count = Keyword.get(opts, :count, 3)
     timeout = Keyword.get(opts, :timeout, 5_000)
 
-    # Build the full shell command as a single string. Arrea.Command.execute/2
-    # takes a command string + keyword opts (not a list of argv), so we
-    # interpolate the args directly. Host goes last; trusting the caller's
-    # input is fine since this is a local diagnostic utility.
     cmd = "ping -c #{count} -W #{div(timeout, 1000)} #{host}"
 
     case Command.execute(cmd, validate: false) do
       {:ok, %{exit_code: 0}} -> :ok
       {:ok, %{exit_code: code, stdout: output}} -> {:error, {:ping_failed, code, output}}
       {:error, reason} -> {:error, {:ping_failed, -1, inspect(reason)}}
-    end
-  end
-
-  @doc """
-  Resolves a hostname to a list of IP addresses.
-
-  Returns `{:ok, [String.t()]}` or `{:error, :nxdomain}` on failure.
-  """
-  @spec resolve(String.t()) :: {:ok, [String.t()]} | {:error, atom()}
-  def resolve(host) do
-    case :inet.gethostbyname(String.to_charlist(host)) do
-      {:ok, {:hostent, _, _, _, _, addresses}} ->
-        {:ok, Enum.map(addresses, fn addr -> addr |> :inet.ntoa() |> List.to_string() end)}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 

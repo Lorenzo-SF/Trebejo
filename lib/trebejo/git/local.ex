@@ -790,15 +790,13 @@ defmodule Trebejo.Git.Local do
   # CLI availability checks
   # ═══════════════════════════════════════════════════════════════════════
 
-  alias Trebejo.Proc, as: Proc
-
   @doc "Checks if the GitHub CLI (gh) is available."
   @spec gh_available?() :: boolean()
-  def gh_available?, do: Proc.command_exists?("gh")
+  def gh_available?, do: Apero.Proc.command_exists?("gh")
 
   @doc "Checks if the GitLab CLI (glab) is available."
   @spec glab_available?() :: boolean()
-  def glab_available?, do: Proc.command_exists?("glab")
+  def glab_available?, do: Apero.Proc.command_exists?("glab")
 
   # Single-quote a string for safe inclusion in a POSIX shell command
   # line. Replaces internal single quotes with the standard
