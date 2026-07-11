@@ -3,71 +3,23 @@ defmodule Trebejo.Proc do
   @moduledoc """
   Process and executable utilities (shell-based operations).
 
-  Process and executable utilities (shell-based operations).
-
-  Pure functions (command availability, VM introspection) are implemented
-  inline. Shell-dependent operations: process listing, signalling, lsof,
-  fuser, and log access.
+  Shell-dependent operations: process listing, signalling, lsof, fuser,
+  and log access. For command availability and VM introspection use
+  `Apero.Proc` directly.
 
   All command execution is routed through `Arrea.Command.execute/2`
   (with `validate: false`) so consumers get real timeout cancellation,
-  telemetry, and structured errors. The fragile `try/rescue` blocks
-  are gone — Arrea returns `{:error, reason}` on timeout / missing
-  binary / etc.
-
+  telemetry, and structured errors.
   """
 
   alias Arrea.Command
-  alias Trebejo.OS
 
-  # ── Inline implementations (formerly delegated to Apero.Proc) ────────
-
-  @doc "Returns `true` if the given command exists in the system `PATH`."
-  @spec command_exists?(String.t()) :: boolean()
-  def command_exists?(cmd) when is_binary(cmd) and byte_size(cmd) > 0,
-    do: System.find_executable(cmd) != nil
-
-  def command_exists?(_), do: false
-
-  @doc "Returns the full path of a command if found, or `nil`."
-  @spec which(String.t()) :: String.t() | nil
-  def which(cmd), do: System.find_executable(cmd)
-
-  @doc "Filters a list of commands to only those available on the system."
-  @spec available_commands([String.t()]) :: [String.t()]
-  def available_commands(commands) do
-    Enum.filter(commands, &command_exists?/1)
-  end
-
-  @doc "Returns a map of `command => path` for all found commands."
-  @spec locate_commands([String.t()]) :: %{String.t() => String.t()}
-  def locate_commands(commands) do
-    commands
-    |> Enum.map(&{&1, System.find_executable(&1)})
-    |> Enum.filter(fn {_, path} -> path != nil end)
-    |> Map.new()
-  end
-
-  @doc "Returns the OS process ID of the BEAM VM."
-  @spec os_pid() :: non_neg_integer()
-  def os_pid, do: :os.getpid() |> List.to_string() |> String.to_integer()
-
-  @doc "Returns the number of scheduler threads."
-  @spec scheduler_count() :: non_neg_integer()
-  def scheduler_count, do: :erlang.system_info(:schedulers_online)
-
-  @doc "Returns the VM memory usage in bytes."
-  @spec vm_memory() :: non_neg_integer()
-  def vm_memory, do: :erlang.memory(:total)
-
-  @doc "Returns the VM uptime in milliseconds."
-  @spec vm_uptime() :: non_neg_integer()
-  def vm_uptime, do: :erlang.statistics(:wall_clock) |> elem(1)
+  # ── Shell-based operations ───────────────────────────────────────────
 
   @doc "Lists running processes (cross-platform via `ps`)."
   @spec ps(keyword()) :: {:ok, [map()]} | {:error, term()}
   def ps(opts \\ []) do
-    case OS.type() do
+    case Apero.OS.type() do
       :linux -> ps_linux(opts)
       :macos -> ps_macos(opts)
       :windows -> ps_windows(opts)
@@ -80,7 +32,7 @@ defmodule Trebejo.Proc do
   def kill(pid, signal \\ :term) do
     sig = signal_to_int(signal)
 
-    case OS.type() do
+    case Apero.OS.type() do
       os when os in [:linux, :macos] ->
         case run_cmd("kill -#{sig} #{pid}") do
           {_, 0} -> :ok
@@ -116,10 +68,6 @@ defmodule Trebejo.Proc do
   def fuser(target) do
     case run_cmd("fuser #{target}") do
       {output, 0} ->
-        # fuser output can include non-numeric lines (e.g. header on
-        # some distros) and empty tokens. Use Integer.parse/1 to skip
-        # anything that isn't a valid PID, so a single malformed token
-        # doesn't fail the whole call.
         pids =
           output
           |> String.split()
@@ -140,7 +88,7 @@ defmodule Trebejo.Proc do
   def logs(service, opts \\ []) do
     lines = Keyword.get(opts, :lines, 50)
 
-    case OS.type() do
+    case Apero.OS.type() do
       :linux ->
         case run_cmd("journalctl -u #{service} -n #{lines} --no-pager") do
           {out, 0} -> {:ok, String.trim(out)}
@@ -148,8 +96,6 @@ defmodule Trebejo.Proc do
         end
 
       :macos ->
-        # Escape single quotes in the service name to prevent predicate
-        # injection in the --predicate clause.
         safe_service = String.replace(service, "'", "'\\''")
 
         case run_cmd("log show --predicate process == '#{safe_service}' --last #{lines}m") do
@@ -162,7 +108,7 @@ defmodule Trebejo.Proc do
     end
   end
 
-  # ── Private ────────────────────────────────────────────────────────
+  # ── Private ──────────────────────────────────────────────────────────
 
   defp ps_linux(_opts) do
     case run_cmd("ps -eo pid,ppid,user,%cpu,%mem,comm --no-headers") do
@@ -190,11 +136,6 @@ defmodule Trebejo.Proc do
     |> String.split("\n")
     |> Enum.map(&String.trim/1)
     |> Enum.reject(&(&1 == ""))
-    # ps can emit %CPU as an integer ("663") on busy systems or as a
-    # float ("0.0") on idle ones. Use Float.parse which handles both
-    # ("0.0" -> 0.0, "663" -> 663.0); nil falls through to the
-    # original raw string and the line is dropped (better than crashing
-    # the whole ps/1 call on a single malformed line).
     |> Enum.flat_map(fn line ->
       parts = String.split(line, ~r/\s+/, parts: 6)
 
@@ -245,7 +186,7 @@ defmodule Trebejo.Proc do
   defp signal_to_int(:cont), do: 18
   defp signal_to_int(other) when is_integer(other), do: other
 
-  # Same shape as Trebejo.OS.run_cmd/1 — single-line wrapper around
+  # Single-line wrapper around
   # Arrea.Command.execute/2 that returns the legacy {output, exit_code}
   # tuple so the existing case ... do {out, 0} -> ...; _ -> ... call
   # sites stay unchanged. On Arrea failure (timeout, missing binary)

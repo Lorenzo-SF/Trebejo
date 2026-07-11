@@ -13,15 +13,15 @@ defmodule Trebejo.NetworkTest do
     end
   end
 
-  describe "resolve/1" do
+  describe "resolve/1 (via Apero.Network)" do
     test "resolves localhost" do
-      assert {:ok, addresses} = Network.resolve("localhost")
+      assert {:ok, addresses} = Apero.Network.resolve("localhost")
       assert is_list(addresses)
       assert addresses != []
     end
 
     test "returns error for invalid hostname" do
-      assert {:error, _} = Network.resolve("this-host-does-not-exist-12345.invalid")
+      assert {:error, _} = Apero.Network.resolve("this-host-does-not-exist-12345.invalid")
     end
   end
 
