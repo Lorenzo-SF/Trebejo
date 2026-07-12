@@ -6,13 +6,12 @@ defmodule Trebejo.SSH do
   (key management, interactive sessions, etc.) consider a dedicated
   library like `:ssh` or `:erlexec`.
 
-  All command execution is routed through `Arrea.Command.execute/2`
-  with `validate: false`. Arguments are shell-quoted before being
-  joined into the final command line so user/host/command values
-  containing whitespace or shell metacharacters are safe.
+  All command execution is routed through `Trebejo.Util.run_cmd_legacy/3`
+  with arg lists — never interpolated into shell strings — to prevent
+  shell injection. Arguments are shell-quoted via `Trebejo.Util.shell_quote/1`.
   """
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @default_port 22
   @default_user "root"
@@ -35,9 +34,8 @@ defmodule Trebejo.SSH do
     key = Keyword.get(opts, :identity, nil)
 
     args = build_ssh_args(key, port, user, host, command)
-    cmd = ["ssh" | Enum.map(args, &shell_quote/1)] |> Enum.join(" ")
 
-    case Command.execute(cmd, validate: false) do
+    case Util.run_cmd_legacy("ssh", args) do
       {output, 0} -> {:ok, output}
       {output, code} -> {:error, {:ssh_failed, code, output}}
     end
@@ -55,9 +53,8 @@ defmodule Trebejo.SSH do
     key = Keyword.get(opts, :identity, nil)
 
     args = build_scp_args(key, port, local, user, remote_host, remote_path)
-    cmd = ["scp" | Enum.map(args, &shell_quote/1)] |> Enum.join(" ")
 
-    case Command.execute(cmd, validate: false) do
+    case Util.run_cmd_legacy("scp", args) do
       {_, 0} -> :ok
       {output, code} -> {:error, {:scp_failed, code, output}}
     end
@@ -81,14 +78,5 @@ defmodule Trebejo.SSH do
   defp build_scp_args(key, port, local, user, host, path) do
     base = ["-P", to_string(port), local, "#{user}@#{host}:#{path}"]
     if key, do: ["-i", key] ++ base, else: base
-  end
-
-  # Single-quote a string for safe inclusion in a POSIX shell command
-  # line. Replaces internal single quotes with the standard
-  # `'\\''` close-then-reopen pattern. Same approach as Trebejo.Git.Local,
-  # Trebejo.Docker and Trebejo.Kubernetes (just landed in this branch).
-  defp shell_quote(str) when is_binary(str) do
-    escaped = String.replace(str, "'", "'\\''")
-    "'#{escaped}'"
   end
 end

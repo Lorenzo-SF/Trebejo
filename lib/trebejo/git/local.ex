@@ -11,6 +11,7 @@ defmodule Trebejo.Git.Local do
 
   alias Apero.File.Tree
   alias Arrea.Command
+  alias Trebejo.Util
 
   @doc """
   Updates an existing repository by fetching from origin.
@@ -798,12 +799,7 @@ defmodule Trebejo.Git.Local do
   @spec glab_available?() :: boolean()
   def glab_available?, do: Apero.Proc.command_exists?("glab")
 
-  # Single-quote a string for safe inclusion in a POSIX shell command
-  # line. Replaces internal single quotes with the standard
-  # `'\\''` close-then-reopen pattern. Sufficient for all git argv
-  # values: commit messages, branch names, paths, refspecs.
   defp shell_quote(str) when is_binary(str) do
-    escaped = String.replace(str, "'", "'\\''")
-    "'#{escaped}'"
+    Util.shell_quote(str)
   end
 end

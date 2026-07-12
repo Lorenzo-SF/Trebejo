@@ -1,7 +1,7 @@
 defmodule Trebejo.Compress do
   # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @moduledoc """
   Universal compression and archive utilities.
@@ -390,30 +390,12 @@ defmodule Trebejo.Compress do
     end
   end
 
-  # Single-quote a string for safe inclusion in a POSIX shell command
-  # line. Replaces internal single quotes with the standard
-  # `'\''` close-then-reopen pattern. Same approach as Trebejo.Git.Local,
-  # Trebejo.Docker, Trebejo.Kubernetes, Trebejo.SSH.
-  defp shell_quote(str) when is_binary(str) do
-    escaped = String.replace(str, "'", "'\''")
-    "'#{escaped}'"
-  end
-
-  # Routes a single tool invocation through Arrea.Command.execute/2 with
-  # validate: false. Returns the legacy {output, exit_code} tuple so the
-  # {_, 0} -> ...; {_, _} -> ... case patterns in the public functions
-  # above stay readable. On Arrea failure (timeout, missing binary)
-  # returns {"", 1} so the caller falls through to the error branch.
+  # Routes a single tool invocation through Util.run_cmd_legacy which
+  # gives real timeout cancellation, telemetry, and structured errors.
+  # Returns the legacy {output, exit_code} tuple so the {_, 0} -> ...;
+  # {_, _} -> ... case patterns above stay readable. On Arrea failure
+  # (timeout, missing binary) returns {"", 1}.
   defp run(cmd, args, opts) do
-    quoted = Enum.map(args, &shell_quote/1)
-    full = [cmd | quoted] |> Enum.join(" ")
-
-    base = [validate: false, stderr_to_stdout: true]
-    arity = Keyword.merge(base, opts)
-
-    case Command.execute(full, arity) do
-      {:ok, %{stdout: out, exit_code: code}} -> {out, code}
-      _ -> {"", 1}
-    end
+    Util.run_cmd_legacy(cmd, args, opts)
   end
 end

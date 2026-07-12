@@ -1,13 +1,14 @@
 defmodule Trebejo.Network do
-  alias Arrea.Command
-
   @moduledoc """
   Network operations: TCP port checks and ICMP ping.
 
   TCP operations (`port_open?/3`, `scan_ports/3`) use `:gen_tcp` directly.
-  ICMP ping uses `Arrea.Command.execute/2`. For DNS resolution use
-  `Apero.Network.resolve/1` directly.
+  ICMP ping uses `Trebejo.Util.run_cmd/3` with arg lists — never
+  interpolated into shell strings — to prevent shell injection.
+  For DNS resolution use `Apero.Network.resolve/1` directly.
   """
+
+  alias Trebejo.Util
 
   @type tcp_port :: 0..65_535
 
@@ -26,12 +27,10 @@ defmodule Trebejo.Network do
     count = Keyword.get(opts, :count, 3)
     timeout = Keyword.get(opts, :timeout, 5_000)
 
-    cmd = "ping -c #{count} -W #{div(timeout, 1000)} #{host}"
-
-    case Command.execute(cmd, validate: false) do
-      {:ok, %{exit_code: 0}} -> :ok
-      {:ok, %{exit_code: code, stdout: output}} -> {:error, {:ping_failed, code, output}}
-      {:error, reason} -> {:error, {:ping_failed, -1, inspect(reason)}}
+    case Util.run_cmd("ping", ["-c", to_string(count), "-W", to_string(div(timeout, 1000)), host]) do
+      {:ok, _out, 0} -> :ok
+      {:ok, out, code} -> {:error, {:ping_failed, code, out}}
+      {:error, reason} -> {:error, {:ping_failed, -1, reason}}
     end
   end
 
