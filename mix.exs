@@ -39,7 +39,7 @@ defmodule Trebejo.MixProject do
   defp deps do
     [
       {:apero, path: "../apero"},
-      {:arrea, "~> 2.2.0"},
+      {:arrea, path: "../arrea", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
