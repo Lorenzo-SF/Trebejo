@@ -15,7 +15,11 @@ Trebejo is the shell-command layer extracted from Apero v2.x.
 - **`Trebejo.Compress`** — zip/tar/gzip (from `Apero.Compress`)
 - **`Trebejo.Network`** — network probes (from `Apero.Network`)
 - **`Trebejo.File`** — file watching via Arrea.WorkerSupervisor (from Apero.File.watch, which moved to Trebejo.File)
-- **`Trebejo.File.IO`** — I/O operations with commands (from `Apero.File.IO`)
 
-All dependencies on `Arrea.Command` are internal to Trebejo. Apero remains a
-pure utility library with no Arrea dependency.
+All dependencies on `Arrea.Command` are internal to Trebejo. Apero remains a pure utility library with no Arrea dependency.
+
+## Added safe command wrapper
+
+- Introduced `Trebejo.SafeCommand` to validate and safely execute system commands.
+- Provides `execute/2` with basic safety checks.
+- Updated documentation accordingly.
