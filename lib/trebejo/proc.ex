@@ -7,12 +7,11 @@ defmodule Trebejo.Proc do
   and log access. For command availability and VM introspection use
   `Apero.Proc` directly.
 
-  All command execution is routed through `Arrea.Command.execute/2`
-  (with `validate: false`) so consumers get real timeout cancellation,
-  telemetry, and structured errors.
+  All command execution is routed through `Trebejo.Util` with arg lists
+  — never interpolated into shell strings — to prevent shell injection.
   """
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   # ── Shell-based operations ───────────────────────────────────────────
 
@@ -34,13 +33,13 @@ defmodule Trebejo.Proc do
 
     case Apero.OS.type() do
       os when os in [:linux, :macos] ->
-        case run_cmd("kill -#{sig} #{pid}") do
+        case Util.run_cmd_legacy("kill", ["-#{sig}", to_string(pid)]) do
           {_, 0} -> :ok
           {_, _} -> {:error, "kill signal #{sig} for pid #{pid} failed"}
         end
 
       :windows ->
-        case run_cmd("taskkill /PID #{pid} /F") do
+        case Util.run_cmd_legacy("taskkill", ["/PID", to_string(pid), "/F"]) do
           {_, 0} -> :ok
           {_, _} -> {:error, "taskkill for pid #{pid} failed"}
         end
@@ -53,7 +52,7 @@ defmodule Trebejo.Proc do
   @doc "Lists files opened by a process (lsof wrapper). Linux/macOS only."
   @spec lsof(non_neg_integer()) :: {:ok, [String.t()]} | {:error, term()}
   def lsof(pid) do
-    case run_cmd("lsof -p #{pid}") do
+    case Util.run_cmd_legacy("lsof", ["-p", to_string(pid)]) do
       {output, 0} ->
         lines = output |> String.split("\n") |> Enum.drop(1) |> Enum.reject(&(&1 == ""))
         {:ok, lines}
@@ -66,17 +65,9 @@ defmodule Trebejo.Proc do
   @doc "Lists processes using a specific file or port (fuser wrapper)."
   @spec fuser(String.t()) :: {:ok, [non_neg_integer()]} | {:error, term()}
   def fuser(target) do
-    case run_cmd("fuser #{target}") do
+    case Util.run_cmd_legacy("fuser", [target]) do
       {output, 0} ->
-        pids =
-          output
-          |> String.split()
-          |> Enum.flat_map(fn
-            {n, ""} -> [n]
-            _ -> []
-          end)
-
-        {:ok, pids}
+        {:ok, parse_fuser_pids(output)}
 
       {output, _} ->
         {:error, output}
@@ -90,15 +81,13 @@ defmodule Trebejo.Proc do
 
     case Apero.OS.type() do
       :linux ->
-        case run_cmd("journalctl -u #{service} -n #{lines} --no-pager") do
+        case Util.run_cmd_legacy("journalctl", ["-u", service, "-n", to_string(lines), "--no-pager"]) do
           {out, 0} -> {:ok, String.trim(out)}
           {out, _} -> {:error, String.trim(out)}
         end
 
       :macos ->
-        safe_service = String.replace(service, "'", "'\\''")
-
-        case run_cmd("log show --predicate process == '#{safe_service}' --last #{lines}m") do
+        case Util.run_cmd_legacy("log", ["show", "--predicate", "process == '#{service}'", "--last", "#{lines}m"]) do
           {out, 0} -> {:ok, String.trim(out)}
           {out, _} -> {:error, String.trim(out)}
         end
@@ -111,21 +100,21 @@ defmodule Trebejo.Proc do
   # ── Private ──────────────────────────────────────────────────────────
 
   defp ps_linux(_opts) do
-    case run_cmd("ps -eo pid,ppid,user,%cpu,%mem,comm --no-headers") do
+    case Util.run_cmd_legacy("ps", ["-eo", "pid,ppid,user,%cpu,%mem,comm", "--no-headers"]) do
       {output, 0} -> {:ok, parse_ps_output(output)}
       {output, _} -> {:error, output}
     end
   end
 
   defp ps_macos(_opts) do
-    case run_cmd("ps -eo pid,ppid,user,%cpu,%mem,comm -r") do
+    case Util.run_cmd_legacy("ps", ["-eo", "pid,ppid,user,%cpu,%mem,comm", "-r"]) do
       {output, 0} -> {:ok, parse_ps_output(output)}
       {output, _} -> {:error, output}
     end
   end
 
   defp ps_windows(_opts) do
-    case run_cmd("tasklist /FO CSV /NH") do
+    case Util.run_cmd_legacy("tasklist", ["/FO", "CSV", "/NH"]) do
       {output, 0} -> {:ok, parse_tasklist(output)}
       {output, _} -> {:error, output}
     end
@@ -175,6 +164,17 @@ defmodule Trebejo.Proc do
     end)
   end
 
+  defp parse_fuser_pids(output) do
+    output
+    |> String.split()
+    |> Enum.flat_map(fn token ->
+      case Integer.parse(token) do
+        {n, ""} -> [n]
+        _ -> []
+      end
+    end)
+  end
+
   defp signal_to_int(:term), do: 15
   defp signal_to_int(:kill), do: 9
   defp signal_to_int(:hup), do: 1
@@ -185,17 +185,4 @@ defmodule Trebejo.Proc do
   defp signal_to_int(:stop), do: 19
   defp signal_to_int(:cont), do: 18
   defp signal_to_int(other) when is_integer(other), do: other
-
-  # Single-line wrapper around
-  # Arrea.Command.execute/2 that returns the legacy {output, exit_code}
-  # tuple so the existing case ... do {out, 0} -> ...; _ -> ... call
-  # sites stay unchanged. On Arrea failure (timeout, missing binary)
-  # returns {"", 1} so the caller falls through to its fallback branch.
-  @spec run_cmd(String.t()) :: {String.t(), non_neg_integer()}
-  defp run_cmd(cmd) do
-    case Command.execute(cmd, validate: false) do
-      {:ok, %{stdout: out, exit_code: code}} -> {out, code}
-      _ -> {"", 1}
-    end
-  end
 end

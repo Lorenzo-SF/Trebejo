@@ -1,5 +1,5 @@
 defmodule Trebejo.OS do
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @moduledoc """
   Operating system information utilities (shell-based).
@@ -173,16 +173,12 @@ defmodule Trebejo.OS do
     end
   end
 
-  # Runs a shell command via Arrea.Command.execute/2 and returns
-  # the legacy `{output, exit_code}` tuple shape so the existing
-  # `case ... do {out, 0} -> ...; _ -> ...` call sites stay unchanged.
-  # On Arrea failure (timeout, missing binary, etc.) returns
-  # `{"", 1}` so the caller falls through to its fallback branch.
+  # Splits a command string into binary name + args and runs via
+  # Util.run_cmd_legacy. Returns {output, exit_code}. On Arrea
+  # failure returns {"", 1}.
   @spec run_cmd(String.t(), keyword()) :: {String.t(), non_neg_integer()}
   defp run_cmd(cmd, opts \\ []) do
-    case Command.execute(cmd, [validate: false] ++ opts) do
-      {:ok, %{stdout: out, exit_code: code}} -> {out, code}
-      _ -> {"", 1}
-    end
+    [bin | rest] = String.split(cmd)
+    Util.run_cmd_legacy(bin, rest, opts)
   end
 end

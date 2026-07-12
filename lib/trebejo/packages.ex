@@ -3,8 +3,8 @@ defmodule Trebejo.Packages do
   Package installation and querying — via `Arrea.Command`.
 
   For package manager detection use `Apero.Packages` directly.
-  All command execution is routed through `Arrea.Command.execute/2`
-  giving real timeout cancellation, telemetry, and structured errors.
+  All command execution is routed through `Trebejo.Util` with arg lists
+  — never interpolated into shell strings — to prevent shell injection.
 
   ## Usage
 
@@ -18,7 +18,7 @@ defmodule Trebejo.Packages do
       Trebejo.Packages.installed?(:brew, "node")
   """
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @type manager ::
           :apt | :apt_get | :brew | :pacman | :yum | :dnf | :apk | :zypper | :pkg | :winget | :choco | :port | :nix
@@ -33,65 +33,66 @@ defmodule Trebejo.Packages do
   def install(manager, packages, opts \\ [])
 
   def install(:apt, packages, opts) do
-    sudo = if Keyword.get(opts, :sudo, true), do: "sudo ", else: ""
-    quiet = if Keyword.get(opts, :quiet, true), do: " -qq", else: ""
-    run_cmd("#{sudo}apt-get#{quiet} install -y #{Enum.join(List.wrap(packages), " ")}")
+    sudo = if Keyword.get(opts, :sudo, true), do: ["sudo"], else: []
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-qq"], else: []
+    Util.run_ok("apt-get", sudo ++ quiet ++ ["install", "-y"] ++ List.wrap(packages))
   end
 
   def install(:apt_get, packages, opts), do: install(:apt, packages, opts)
 
   def install(:brew, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("brew#{quiet} install #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("brew", quiet ++ ["install"] ++ List.wrap(packages))
   end
 
   def install(:pacman, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " --noconfirm", else: ""
-    run_cmd("sudo pacman -S#{quiet} #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["--noconfirm"], else: []
+    Util.run_ok("sudo", ["pacman", "-S"] ++ quiet ++ List.wrap(packages))
   end
 
   def install(:dnf, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo dnf#{quiet} install -y #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["dnf"] ++ quiet ++ ["install", "-y"] ++ List.wrap(packages))
   end
 
   def install(:yum, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo yum#{quiet} install -y #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["yum"] ++ quiet ++ ["install", "-y"] ++ List.wrap(packages))
   end
 
   def install(:zypper, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo zypper#{quiet} install -y #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["zypper"] ++ quiet ++ ["install", "-y"] ++ List.wrap(packages))
   end
 
   def install(:apk, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo apk add#{quiet} #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["apk", "add"] ++ quiet ++ List.wrap(packages))
   end
 
   def install(:pkg, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo pkg install#{quiet} -y #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["pkg", "install"] ++ quiet ++ ["-y"] ++ List.wrap(packages))
   end
 
   def install(:winget, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " --silent", else: ""
-    run_cmd("winget install#{quiet} #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["--silent"], else: []
+    Util.run_ok("winget", ["install"] ++ quiet ++ List.wrap(packages))
   end
 
   def install(:choco, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -y", else: ""
-    run_cmd("choco install#{quiet} #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-y"], else: []
+    Util.run_ok("choco", ["install"] ++ quiet ++ List.wrap(packages))
   end
 
   def install(:port, packages, opts) do
-    quiet = if Keyword.get(opts, :quiet, true), do: " -q", else: ""
-    run_cmd("sudo port install#{quiet} #{Enum.join(List.wrap(packages), " ")}")
+    quiet = if Keyword.get(opts, :quiet, true), do: ["-q"], else: []
+    Util.run_ok("sudo", ["port", "install"] ++ quiet ++ List.wrap(packages))
   end
 
   def install(:nix, packages, _opts) do
-    run_cmd("nix-env -iA nixpkgs.#{Enum.join(List.wrap(packages), " nixpkgs.")}")
+    nix_args = Enum.flat_map(List.wrap(packages), &["nixpkgs.#{&1}"])
+    Util.run_ok("nix-env", ["-iA"] ++ nix_args)
   end
 
   @doc """
@@ -114,8 +115,8 @@ defmodule Trebejo.Packages do
   def installed?(manager, package)
 
   def installed?(:apt, package) do
-    case Command.execute("dpkg -l #{package}", validate: false) do
-      {:ok, %{exit_code: 0, stdout: out}} -> String.contains?(out, "ii  #{package}")
+    case Util.run_cmd("dpkg", ["-l", package]) do
+      {:ok, out, 0} -> String.contains?(out, "ii  #{package}")
       _ -> false
     end
   end
@@ -123,22 +124,22 @@ defmodule Trebejo.Packages do
   def installed?(:apt_get, package), do: installed?(:apt, package)
 
   def installed?(:brew, package) do
-    case Command.execute("brew list #{package}", validate: false) do
-      {:ok, %{exit_code: 0}} -> true
+    case Util.run_cmd("brew", ["list", package]) do
+      {:ok, _out, 0} -> true
       _ -> false
     end
   end
 
   def installed?(:pacman, package) do
-    case Command.execute("pacman -Qi #{package}", validate: false) do
-      {:ok, %{exit_code: 0}} -> true
+    case Util.run_cmd("pacman", ["-Qi", package]) do
+      {:ok, _out, 0} -> true
       _ -> false
     end
   end
 
   def installed?(:dnf, package) do
-    case Command.execute("rpm -q #{package}", validate: false) do
-      {:ok, %{exit_code: 0}} -> true
+    case Util.run_cmd("rpm", ["-q", package]) do
+      {:ok, _out, 0} -> true
       _ -> false
     end
   end
@@ -155,16 +156,6 @@ defmodule Trebejo.Packages do
     case Apero.Packages.preferred() do
       nil -> false
       mgr -> installed?(mgr, package)
-    end
-  end
-
-  # ── Helpers ──────────────────────────────────────────────────────────
-
-  defp run_cmd(cmd) do
-    case Command.execute(cmd, validate: false, stderr_to_stdout: true) do
-      {:ok, %{exit_code: 0}} -> :ok
-      {:ok, %{stdout: out}} -> {:error, String.trim(out)}
-      {:error, reason} -> {:error, inspect(reason)}
     end
   end
 end
