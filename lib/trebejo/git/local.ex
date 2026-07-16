@@ -435,6 +435,18 @@ defmodule Trebejo.Git.Local do
   end
 
   @doc """
+  Returns the short (7-char) commit hash for `HEAD`.
+  """
+  @spec get_short_commit(binary()) :: {:ok, binary()} | {:error, binary()}
+  def get_short_commit(repo_path) do
+    case run_git(["rev-parse", "--short", "HEAD"], cd: repo_path) do
+      {:ok, %{exit_code: 0, stdout: output}} -> {:ok, String.trim(output)}
+      {:ok, %{stdout: output}} -> {:error, String.trim(output)}
+      {:error, reason} -> {:error, inspect(reason)}
+    end
+  end
+
+  @doc """
   Pushes stash entries in a repository.
 
   ## Options
