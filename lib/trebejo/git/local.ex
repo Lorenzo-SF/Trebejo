@@ -89,13 +89,13 @@ defmodule Trebejo.Git.Local do
   def existing_repos(repos) do
     repos
     |> Enum.filter(fn
-      {:repo_exists, _, _} -> true
-      {:repo_exists, _} -> true
+      {:repo_exists, %{path: _}, _} -> true
+      {:repo_exists, %{path: _}} -> true
       _ -> false
     end)
     |> Enum.map(fn
-      {_, %{path: path}, _} -> path
-      {_, %{path: path}} -> path
+      {:repo_exists, %{path: path}, _} -> path
+      {:repo_exists, %{path: path}} -> path
     end)
     |> Tree.generate_tree()
   end
@@ -117,17 +117,23 @@ defmodule Trebejo.Git.Local do
   @doc """
   Sets Git user name, email, and URL rewrite rules globally.
   """
-  @spec set_user_info(binary(), binary()) :: :ok
+  @spec set_user_info(binary(), binary()) :: :ok | {:error, binary()}
   def set_user_info(name, email) do
-    run_git(["config", "--global", "user.name", name])
-    run_git(["config", "--global", "user.email", email])
+    cmds = [
+      ["config", "--global", "user.name", name],
+      ["config", "--global", "user.email", email],
+      ["config", "--global", "url.git@github.com:.insteadOf", "https://github.com/"],
+      ["config", "--global", "url.git@gitlab.com:.insteadOf", "https://gitlab.com/"],
+      ["config", "--global", "pull.rebase", "false"]
+    ]
 
-    run_git(["config", "--global", "url.git@github.com:.insteadOf", "https://github.com/"])
-
-    run_git(["config", "--global", "url.git@gitlab.com:.insteadOf", "https://gitlab.com/"])
-
-    run_git(["config", "--global", "pull.rebase", "false"])
-    :ok
+    Enum.reduce_while(cmds, :ok, fn args, _acc ->
+      case run_git(args) do
+        {:ok, %{exit_code: 0}} -> {:cont, :ok}
+        {:ok, %{stdout: out}} -> {:halt, {:error, String.trim(out)}}
+        {:error, reason} -> {:halt, {:error, inspect(reason)}}
+      end
+    end)
   end
 
   @doc """
@@ -402,9 +408,8 @@ defmodule Trebejo.Git.Local do
   @spec clone_repository(binary(), binary()) :: {:ok, binary()} | {:error, any()}
   def clone_repository(url, target_path) do
     env = %{"GIT_TERMINAL_PROMPT" => "0"}
-    cmd_line = "git clone --quiet #{shell_quote(url)} #{shell_quote(target_path)}"
 
-    case run_system_cmd("git", cmd_line, env: env) do
+    case run_git(["clone", "--quiet", url, target_path], env: env) do
       {:ok, %{exit_code: 0, stdout: output}} -> {:ok, String.trim(output)}
       {:ok, %{stdout: output}} -> {:error, String.trim(output)}
       {:error, reason} -> {:error, inspect(reason)}
@@ -729,7 +734,7 @@ defmodule Trebejo.Git.Local do
 
   defp setup_ssh_key(ssh_key) do
     if File.exists?(ssh_key) do
-      safe_ssh_cmd = "ssh -i #{ssh_key}"
+      safe_ssh_cmd = "ssh -i '#{ssh_key}'"
 
       case run_git(["config", "--global", "core.sshCommand", safe_ssh_cmd]) do
         {:ok, %{exit_code: 0}} -> :ok
@@ -758,11 +763,14 @@ defmodule Trebejo.Git.Local do
   # ────────────────────────────────────────────────────────────────────
 
   defp run_git(git_args, opts \\ []) do
-    cd = Keyword.get(opts, :cd)
-    timeout = Keyword.get(opts, :timeout)
     cmd_line = ["git" | Enum.map(git_args, &shell_quote/1)] |> Enum.map_join(" ", & &1)
-    extra = [cd: cd] ++ if(timeout, do: [timeout: timeout], else: [])
-    run_system_cmd("git", cmd_line, extra)
+
+    extra =
+      (if cd = opts[:cd], do: [cd: cd], else: []) ++
+        (if t = opts[:timeout], do: [timeout: t], else: [])
+
+    forwarded = Keyword.drop(opts, [:cd, :timeout])
+    run_system_cmd("git", cmd_line, Keyword.merge(extra, forwarded))
   end
 
   defp run_system_cmd(_cmd, telemetry_cmd_line, opts) do
