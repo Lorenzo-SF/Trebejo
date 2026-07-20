@@ -16,7 +16,7 @@ defmodule Trebejo.Proc do
   # ── Shell-based operations ───────────────────────────────────────────
 
   @doc "Lists running processes (cross-platform via `ps`)."
-  @spec ps(keyword()) :: {:ok, [map()]} | {:error, term()}
+  @spec ps(keyword()) :: {:ok, [map()]} | {:error, String.t()}
   def ps(opts \\ []) do
     case Apero.OS.type() do
       :linux -> ps_linux(opts)
@@ -87,9 +87,11 @@ defmodule Trebejo.Proc do
         end
 
       :macos ->
-        case Util.run_cmd_legacy("log", ["show", "--predicate", "process == '#{service}'", "--last", "#{lines}m"]) do
-          {out, 0} -> {:ok, String.trim(out)}
-          {out, _} -> {:error, String.trim(out)}
+        with {:ok, s} <- validate_service_name(service) do
+          case Util.run_cmd_legacy("log", ["show", "--predicate", "process == '#{s}'", "--last", "#{lines}m"]) do
+            {out, 0} -> {:ok, String.trim(out)}
+            {out, _} -> {:error, String.trim(out)}
+          end
         end
 
       _ ->
@@ -98,6 +100,16 @@ defmodule Trebejo.Proc do
   end
 
   # ── Private ──────────────────────────────────────────────────────────
+
+  defp validate_service_name(name) when is_binary(name) do
+    if Regex.match?(~r/\A[\w.\-\/]+\z/, name) do
+      {:ok, name}
+    else
+      {:error, "invalid service name"}
+    end
+  end
+
+  defp validate_service_name(_), do: {:error, "invalid service name"}
 
   defp ps_linux(_opts) do
     case Util.run_cmd_legacy("ps", ["-eo", "pid,ppid,user,%cpu,%mem,comm", "--no-headers"]) do

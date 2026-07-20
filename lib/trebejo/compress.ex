@@ -112,7 +112,14 @@ defmodule Trebejo.Compress do
   # ZIP
   # ═══════════════════════════════════════════════════════════════════════
 
-  @doc "Creates a zip archive from source paths. Supports password."
+  @doc """
+  Creates a zip archive from source paths. Supports password.
+
+  > ⚠️ **Security**: The password is passed via `-P` on the command line
+  > and is visible in the process list (`ps aux`). The `zip` tool does
+  > not support reading passwords from stdin. Prefer encrypted volumes
+  > or key-based protection for sensitive data.
+  """
   @spec zip(binary(), [binary()], keyword()) :: {:ok, binary()} | {:error, binary()}
   def zip(output, files, opts \\ []) do
     cd = Keyword.get(opts, :cd, ".")
@@ -131,7 +138,13 @@ defmodule Trebejo.Compress do
     end
   end
 
-  @doc "Extracts a zip archive."
+  @doc """
+  Extracts a zip archive.
+
+  > ⚠️ **Security**: The password is passed via `-P` on the command line
+  > and is visible in the process list (`ps aux`). The `unzip` tool does
+  > not support reading passwords from stdin.
+  """
   @spec unzip(binary(), keyword()) :: {:ok, binary()} | {:error, binary()}
   def unzip(file, opts \\ []) do
     output = Keyword.get(opts, :output, ".")
@@ -161,16 +174,16 @@ defmodule Trebejo.Compress do
   def tar(output, input, opts \\ []) do
     compressed = Keyword.get(opts, :compressed, :none)
 
-    {flag_prefix, extra_flag} =
+    {flag_list, extra_flag} =
       case compressed do
-        :gzip -> {"-czvf", []}
-        :bzip2 -> {"-cjvf", []}
-        :xz -> {"-cJvf", []}
-        :zstd -> {"-cvf", ["--zstd"]}
-        :none -> {"-cvf", []}
+        :gzip -> {["-c", "-z", "-v", "-f"], []}
+        :bzip2 -> {["-c", "-j", "-v", "-f"], []}
+        :xz -> {["-c", "-J", "-v", "-f"], []}
+        :zstd -> {["-c", "-v", "-f"], ["--zstd"]}
+        :none -> {["-c", "-v", "-f"], []}
       end
 
-    args = extra_flag ++ [flag_prefix, output, input]
+    args = extra_flag ++ flag_list ++ [output, input]
 
     case run("tar", args, stderr_to_stdout: true) do
       {_out, 0} -> {:ok, output}
@@ -184,16 +197,16 @@ defmodule Trebejo.Compress do
     output = Keyword.get(opts, :output, ".")
     type = detect_type(file)
 
-    {flag_prefix, extra_flag} =
+    {flag_list, extra_flag} =
       case type do
-        :tar_gz -> {"-xzvf", []}
-        :tar_bz2 -> {"-xjvf", []}
-        :tar_xz -> {"-xJvf", []}
-        :tar_zst -> {"-xvf", ["--zstd"]}
-        _ -> {"-xvf", []}
+        :tar_gz -> {["-x", "-z", "-v", "-f"], []}
+        :tar_bz2 -> {["-x", "-j", "-v", "-f"], []}
+        :tar_xz -> {["-x", "-J", "-v", "-f"], []}
+        :tar_zst -> {["-x", "-v", "-f"], ["--zstd"]}
+        _ -> {["-x", "-v", "-f"], []}
       end
 
-    args = extra_flag ++ [flag_prefix, file, "-C", output]
+    args = extra_flag ++ flag_list ++ [file, "-C", output]
 
     case run("tar", args, stderr_to_stdout: true) do
       {_out, 0} -> {:ok, output}
@@ -290,7 +303,15 @@ defmodule Trebejo.Compress do
   # 7-Zip
   # ═══════════════════════════════════════════════════════════════════════
 
-  @doc "Extracts a 7z archive."
+  @doc """
+  Extracts a 7z archive.
+
+  > ⚠️ **Security**: The password is passed via `-p` on the command line
+  > and is visible in the process list (`ps aux`). The `7z` tool supports
+  > reading passwords from stdin (`-p` with no value), but Arrea's
+  > current pipeline does not support stdin. See
+  > [Arrea#stdin](https://github.com/Lorenzo-SF/arrea) for future support.
+  """
   @spec extract_7z(binary(), keyword()) :: {:ok, binary()} | {:error, binary()}
   def extract_7z(file, opts \\ []) do
     output = Keyword.get(opts, :output, ".")
@@ -305,7 +326,13 @@ defmodule Trebejo.Compress do
     end
   end
 
-  @doc "Creates a 7z archive from source paths."
+  @doc """
+  Creates a 7z archive from source paths.
+
+  > ⚠️ **Security**: The password is passed via `-p` on the command line
+  > and is visible in the process list (`ps aux`). Consider using
+  > encrypted volumes or key-based protection for sensitive data.
+  """
   @spec create_7z(binary(), [binary()], keyword()) :: {:ok, binary()} | {:error, binary()}
   def create_7z(output, files, opts \\ []) do
     cd = Keyword.get(opts, :cd, ".")

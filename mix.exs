@@ -24,6 +24,7 @@ defmodule Trebejo.MixProject do
         maintainers: ["Lorenzo Sánchez"]
       ],
       docs: docs(),
+      # ExCoveralls for CI; `mix test --cover` also works natively
       test_coverage: [tool: ExCoveralls],
       dialyzer: dialyzer_config()
     ]
@@ -39,6 +40,8 @@ defmodule Trebejo.MixProject do
   defp deps do
     [
       {:apero, path: "../apero"},
+      # Local path override — CI/CD must set up the same path or use a
+      # published version. See `../arrea/docs/AUDIT.md` for details.
       {:arrea, path: "../arrea", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},

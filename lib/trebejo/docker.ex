@@ -190,7 +190,13 @@ defmodule Trebejo.Docker do
   @doc "Lists running compose services."
   @spec compose_ps(keyword()) :: {:ok, binary()} | {:error, binary()}
   def compose_ps(opts \\ []) do
-    case Util.run_cmd_legacy(runtime_binary(), ["compose", "ps", "|", Keyword.get(opts, :cd, ".")]) do
+    cmd_opts =
+      case Keyword.get(opts, :cd) do
+        nil -> []
+        dir -> [cd: dir]
+      end
+
+    case Util.run_cmd_legacy(runtime_binary(), ["compose", "ps"], cmd_opts) do
       {out, 0} -> {:ok, String.trim(out)}
       {err, _} -> {:error, String.trim(err)}
     end
