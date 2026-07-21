@@ -109,9 +109,9 @@ defmodule Trebejo.Packages do
   @doc """
   Checks if a package is installed via the given manager.
 
-  Returns `true`, `false`, or `{:error, reason}`.
+  Returns `true` or `false`.
   """
-  @spec installed?(manager, package) :: boolean | {:error, String.t()}
+  @spec installed?(manager, package) :: boolean()
   def installed?(manager, package)
 
   def installed?(:apt, package) do
