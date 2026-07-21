@@ -766,8 +766,8 @@ defmodule Trebejo.Git.Local do
     cmd_line = ["git" | Enum.map(git_args, &shell_quote/1)] |> Enum.map_join(" ", & &1)
 
     extra =
-      (if cd = opts[:cd], do: [cd: cd], else: []) ++
-        (if t = opts[:timeout], do: [timeout: t], else: [])
+      if(cd = opts[:cd], do: [cd: cd], else: []) ++
+        if t = opts[:timeout], do: [timeout: t], else: []
 
     forwarded = Keyword.drop(opts, [:cd, :timeout])
     run_system_cmd("git", cmd_line, Keyword.merge(extra, forwarded))
