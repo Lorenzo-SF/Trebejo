@@ -1,5 +1,4 @@
 defmodule Trebejo.Proc do
-  # credo:disable-for-this-file Credo.Check.Refactor.CyclomaticComplexity
   @moduledoc """
   Process and executable utilities (shell-based operations).
 
@@ -12,6 +11,8 @@ defmodule Trebejo.Proc do
   """
 
   alias Trebejo.Util
+
+  require Logger
 
   # ── Shell-based operations ───────────────────────────────────────────
 
@@ -80,26 +81,29 @@ defmodule Trebejo.Proc do
     lines = Keyword.get(opts, :lines, 50)
 
     case Apero.OS.type() do
-      :linux ->
-        case Util.run_cmd_legacy("journalctl", ["-u", service, "-n", to_string(lines), "--no-pager"]) do
-          {out, 0} -> {:ok, String.trim(out)}
-          {out, _} -> {:error, String.trim(out)}
-        end
-
-      :macos ->
-        with {:ok, s} <- validate_service_name(service) do
-          case Util.run_cmd_legacy("log", ["show", "--predicate", "process == '#{s}'", "--last", "#{lines}m"]) do
-            {out, 0} -> {:ok, String.trim(out)}
-            {out, _} -> {:error, String.trim(out)}
-          end
-        end
-
-      _ ->
-        {:error, :unsupported_os}
+      :linux -> logs_linux(service, lines)
+      :macos -> logs_macos(service, lines)
+      _ -> {:error, :unsupported_os}
     end
   end
 
   # ── Private ──────────────────────────────────────────────────────────
+
+  defp logs_linux(service, lines) do
+    case Util.run_cmd_legacy("journalctl", ["-u", service, "-n", to_string(lines), "--no-pager"]) do
+      {out, 0} -> {:ok, String.trim(out)}
+      {out, _} -> {:error, String.trim(out)}
+    end
+  end
+
+  defp logs_macos(service, lines) do
+    with {:ok, s} <- validate_service_name(service) do
+      case Util.run_cmd_legacy("log", ["show", "--predicate", "process == '#{s}'", "--last", "#{lines}m"]) do
+        {out, 0} -> {:ok, String.trim(out)}
+        {out, _} -> {:error, String.trim(out)}
+      end
+    end
+  end
 
   defp validate_service_name(name) when is_binary(name) do
     if Regex.match?(~r/\A[\w.\-\/]+\z/, name) do
@@ -155,7 +159,9 @@ defmodule Trebejo.Proc do
           }
         ]
       else
-        _ -> []
+        _ ->
+          Logger.warning("Trebejo.Proc: malformed ps line, skipping: #{inspect(line)}")
+          []
       end
     end)
   end
@@ -165,15 +171,31 @@ defmodule Trebejo.Proc do
     |> String.split("\n")
     |> Enum.map(&String.trim(&1, "\""))
     |> Enum.reject(&(&1 == ""))
-    |> Enum.map(fn line ->
-      [name, pid, _session, _session_num, mem] = String.split(line, "\",\"")
+    |> Enum.flat_map(&parse_tasklist_row/1)
+  end
 
-      %{
-        pid: String.to_integer(pid),
-        mem: mem,
-        command: String.trim(name, "\"")
-      }
-    end)
+  defp parse_tasklist_row(line) do
+    case String.split(line, "\",\"") do
+      [name, pid, _session, _session_num, mem] ->
+        case Integer.parse(pid) do
+          {pid_int, ""} ->
+            [
+              %{
+                pid: pid_int,
+                mem: mem,
+                command: String.trim(name, "\"")
+              }
+            ]
+
+          _ ->
+            Logger.warning("Trebejo.Proc: malformed tasklist row, skipping: #{inspect(line)}")
+            []
+        end
+
+      _ ->
+        Logger.warning("Trebejo.Proc: tasklist row with != 5 columns, skipping: #{inspect(line)}")
+        []
+    end
   end
 
   defp parse_fuser_pids(output) do
