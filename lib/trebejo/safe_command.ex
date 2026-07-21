@@ -14,9 +14,6 @@ defmodule Trebejo.SafeCommand do
 
       # Run a simple command:
       SafeCommand.execute("echo", ["hello"], validate: false)
-
-      # With legacy {output, exit_code} tuple:
-      SafeCommand.run_legacy("docker", ["ps"])
   """
 
   alias Arrea.Command
@@ -61,17 +58,6 @@ defmodule Trebejo.SafeCommand do
 
       Command.execute(cmd_line, full_opts)
     end
-  end
-
-  @doc """
-  Legacy {output, exit_code} tuple wrapper.
-
-  Returns `{output, exit_code}` on success or `{"", 1}` on Arrea failure
-  (timeout, missing binary).
-  """
-  @spec run_legacy(binary(), [binary()], keyword()) :: {binary(), non_neg_integer()}
-  def run_legacy(cmd_name, args, opts \\ []) do
-    Util.run_cmd_legacy(cmd_name, args, opts)
   end
 
   # Build a single command line from binary name + shell-quoted args.
