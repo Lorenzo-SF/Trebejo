@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `Trebejo.Proc.parse_tasklist/1` no longer raises `MatchError` on Windows rows with a number of columns other than 5. Bad rows are now logged and skipped.
+- `Trebejo.Proc.parse_ps_output/1` and `parse_tasklist/1` emit `Logger.warning` instead of silently dropping malformed input.
+- `Trebejo.Proc.logs/2` body depth reduced to 2 by extracting `logs_linux/2` and `logs_macos/2` helpers; the file-level credo disable for `CyclomaticComplexity` is no longer needed.
+- `Trebejo.Packages.installed?/2` `@spec` tightened from `boolean | {:error, String.t()}` to `boolean()` — no clause actually returns `{:error, _}`.
+
+### Removed
+
+- `Trebejo.SafeCommand.run_legacy/3` — dead code, only referenced in its own docstring. Use `Trebejo.Util.run_cmd_legacy/3` directly.
+
 ## 1.0.0 (2026-07-09)
 
 ### Initial release
