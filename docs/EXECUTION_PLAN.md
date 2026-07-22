@@ -1,8 +1,9 @@
 # Trebejo v2.4.0 — Plan de Ejecución
 
-> **Última actualización**: 2026-07-21
+> **Última actualización**: 2026-07-22
 > **Auditoría original**: `AUDIT.md` (2026-07-19)
 > **Auditoría complementaria**: revisión tras batch de calidad (2026-07-21)
+> **Auditoría complementaria v2**: revisión + agrupación por impacto (2026-07-22)
 > **Estado**: 5/5 comandos pasan. Pendientes: refactors gordos + tests.
 
 ---
@@ -33,6 +34,16 @@ CHANGELOG `[Unreleased]` actualizado. Git history normalizado. README.es.md crea
 | **Total tareas** | **15 + 2** | **9** | **8** |
 
 **Esfuerzo restante estimado**: ~16h (incluye refactors gordos).
+
+### Vista por impacto (ver §11 para detalle)
+
+| Impacto | # tareas | Descripción |
+|---------|----------|-------------|
+| 🟢 LOCAL | 15 | Solo afecta a trebejo internamente |
+| 🟡 MEDIO | 6 | Afecta a 1-2 consumers (candil, botica, delfos, alaja) |
+| 🔴 CRÍTICO | 1 | `Git.Local.split` (TRE-15) — afecta a delfos |
+
+**Conclusión**: trebejo es shell-wrappers layer. Solo el split de `Git.Local` (TRE-15) tiene blast radius ≥3 (delfos usa `git churn`, `clone`, etc.). El resto son fixes internos sin tocar API pública, salvo TRE-22 (password security) que sí cambia comportamiento observable.
 
 ---
 
@@ -266,3 +277,226 @@ Bajo `[Unreleased]`:
 - Tareas TRE-XX según se completen
 
 NO bumpear versión.
+
+---
+
+## 10. AUDIT v2 — Hallazgos adicionales no abordados (2026-07-22)
+
+> Tareas del `AUDIT.md` original que **no tienen contraparte** en las secciones §3-§5 (TRE-01..TRE-18).
+
+### TRE-19: SafeCommand bypassed by all consumer modules
+- **Hallazgo** (`AUDIT.md` §P0 #1):
+  > `safe_command.ex` declara ser "the single entry point for all command execution" pero cero consumer modules lo usan. Cada módulo llama `Util.run_cmd_legacy/3` con `validate: false`. El regex de validación de `safe_command.ex:25` es dead code.
+- **Severidad**: 🔴 P0 (architecture fix)
+- **Ficheros**: `lib/trebejo/util.ex`, `lib/trebejo/safe_command.ex`, todos los consumers (`docker.ex`, `git/local.ex`, `compress.ex`, `proc.ex`, etc.)
+- **Esfuerzo**: 4-6h
+- **Pasos**:
+  1. Decidir enfoque: (a) routear todos los módulos via `SafeCommand.execute/3`, o (b) eliminar `SafeCommand` y mover validación a `Util.run_cmd/3`
+  2. Opción recomendada: (a) — `SafeCommand` ya existe, solo hay que conectarlo
+  3. Reemplazar todas las llamadas a `Util.run_cmd_legacy` por `SafeCommand.execute/3`
+  4. Tests de integración que verifiquen que `SafeCommand.execute/3` rechaza comandos maliciosos
+- **Verificación**: `mix test` + `mix credo --all`
+- **Impacto**: 🟢 LOCAL (cambio interno, mejora arquitectura)
+- **Riesgos**: Medio. Cambio de path de ejecución puede afectar tests existentes.
+
+### TRE-20: Fix `Docker.compose_ps/1` broken pipe-artifact
+- **Hallazgo** (`AUDIT.md` §P0 #2): `docker.ex:193` pasa `"|"` como literal argument — siempre falla en runtime.
+- **Severidad**: 🔴 P0 (runtime bug)
+- **Ficheros**: `lib/trebejo/docker.ex`
+- **Esfuerzo**: 30 min
+- **Pasos**:
+  1. Eliminar `"|"` y el path trailing en `docker.ex:193`
+  2. Si se necesita context de directorio, pasarlo via `cd:` option
+  3. Test que verifique que `compose_ps` ejecuta correctamente
+- **Verificación**: `mix test test/trebejo/docker_test.exs`
+- **Impacto**: 🟡 MEDIO (afecta a delfos que usa Docker)
+- **Riesgos**: Bajo. Fix claro.
+
+### TRE-21: Fix `Git.Local.clone_repository/2` inconsistent command construction
+- **Hallazgo** (`AUDIT.md` §P0 #3): `git/local.ex:405` usa `run_system_cmd` con string raw; otros usan `run_git/2`. Inconsistencia arquitectural.
+- **Severidad**: 🔴 P0 (architecture consistency)
+- **Ficheros**: `lib/trebejo/git/local.ex`
+- **Esfuerzo**: 1h
+- **Pasos**:
+  1. Refactor `clone_repository/2` para usar `run_git/2` consistentemente
+  2. Eliminar `cmd_line` string raw
+  3. Test que verifique que clone funciona con URLs con caracteres especiales
+- **Verificación**: `mix test test/trebejo/git/local_test.exs`
+- **Impacto**: 🟡 MEDIO (afecta a delfos que usa git clone)
+- **Riesgos**: Bajo.
+
+### TRE-22: Password on argv (side-channel leak)
+- **Hallazgo** (`AUDIT.md` §P1 #4): passwords en `compress.ex:123, 142, 300, 315` son visibles via `/proc/<pid>/cmdline` en Linux.
+- **Severidad**: 🟠 P1 (security)
+- **Ficheros**: `lib/trebejo/compress.ex`
+- **Esfuerzo**: 3-4h
+- **Pasos**:
+  1. Investigar soporte de `--password-stdin` en zip 3.5+
+  2. Investigar `7z -p` con stdin
+  3. Refactor `Compress.zip/2`, `unzip/2`, `sevenzip/2` para escribir password via stdin
+  4. Tests con mock de stdin
+- **Verificación**: `mix test test/trebejo/compress_test.exs`
+- **Impacto**: 🟡 MEDIO (afecta a delfos, botica que usan compress)
+- **Riesgos**: Medio. Cambio de API interna; verificar que zip/7z soportan stdin en versiones target.
+
+### TRE-23: macOS `logs/2` predicate interpolation guard
+- **Hallazgo** (`AUDIT.md` §P1 #5): `proc.ex:90` interpola `service` en predicate string — actualmente seguro por shell_quote pero frágil.
+- **Severidad**: 🟠 P1 (security hardening)
+- **Ficheros**: `lib/trebejo/proc.ex`
+- **Esfuerzo**: 30 min
+- **Pasos**:
+  1. Añadir guard regex `\A[\w.\-/]+\z` en `logs/2` para `service`
+  2. Si no coincide, retornar `{:error, :invalid_service_name}`
+  3. Test con servicio válido + servicio inválido
+- **Verificación**: `mix test test/trebejo/proc_test.exs`
+- **Impacto**: 🟢 LOCAL (defensiva, no cambia API)
+
+### TRE-24: Typespec fixes (P1 #6)
+- **Hallazgo** (`AUDIT.md` §P1 #6): 4 typespec bugs en `safe_command.ex`, `compress.ex:398`, `proc.ex`, `git/local.ex`.
+- **Severidad**: 🟠 P1
+- **Ficheros**: 4 archivos
+- **Esfuerzo**: 1h
+- **Pasos**:
+  1. `safe_command.ex`: añadir `default` a `run_legacy/3` opts spec
+  2. `compress.ex:398`: tipar `run/3` o hacerlo `def` público con spec
+  3. `proc.ex`: corregir spec de `ps/1` a `{:ok, [map()]} | {:error, binary()}`
+  4. `git/local.ex`: corregir spec de `set_user_info/2` para que retorne `{:ok, _}` o `{:error, _}`
+- **Verificación**: `mix dialyzer` (0 warnings)
+- **Impacto**: 🟢 LOCAL
+
+### TRE-25: Replace tautological test assertions
+- **Hallazgo** (`AUDIT.md` §P1 #7): 21 tests en `docker_test.exs` + tests en `git/local_test.exs` y `proc_test.exs` usan `match?({:ok, _}, _) or match?({:error, _}, _)` — pasan para cualquier outcome.
+- **Severidad**: 🟠 P1 (test quality)
+- **Ficheros**: `test/trebejo/docker_test.exs`, `test/trebejo/git/local_test.exs`, `test/trebejo/proc_test.exs`
+- **Esfuerzo**: 3-4h
+- **Pasos**:
+  1. Auditar cada test que usa el patrón tautológico
+  2. Reemplazar con aserciones que validen contenido: `assert {:ok, output} = result; assert output =~ "expected_substring"`
+  3. Mockear shell calls con Mimic o Mecc
+  4. Para tests que dependen de binarios externos (docker, git), marcar con `@tag :integration` y excluirlos del CI
+- **Verificación**: `mix test --cover` (cobertura debe mantenerse o subir)
+- **Impacto**: 🟢 LOCAL
+
+### TRE-26: Property tests para `Util.shell_quote/1`
+- **Hallazgo** (`AUDIT.md` §P2 #8): `shell_quote/1` es la fundación de toda la seguridad de inyección pero no tiene tests dedicados.
+- **Severidad**: 🟡 P2
+- **Ficheros**: `test/trebejo/util_test.exs` (nuevo o ampliar)
+- **Esfuerzo**: 1h
+- **Pasos**:
+  1. Tests para edge cases: empty string, strings con `'`, con newlines, con backslashes, con `$`, con `"`
+  2. Property test con StreamData: para cualquier string, `shell_quote(s)` la hace safe para shell POSIX
+  3. Test: `echo #{shell_quote(s)} | bash` ejecuta `s` literalmente sin inyección
+- **Verificación**: `mix test test/trebejo/util_test.exs`
+- **Impacto**: 🟢 LOCAL (defensiva)
+- **Nota**: TRE-10 cubre `safe_command.ex shell_quote/1` pero el AUDIT señala `util.ex:18-21` — módulos diferentes.
+
+### TRE-27: `setup_ssh_key/1` path-with-spaces risk
+- **Hallazgo** (`AUDIT.md` §P2 #9): `git/local.ex:732` concatena `ssh_key` sin quotes — paths con espacios rompen el comando.
+- **Severidad**: 🟡 P2 (security)
+- **Ficheros**: `lib/trebejo/git/local.ex`
+- **Esfuerzo**: 30 min
+- **Pasos**:
+  1. En `setup_ssh_key/1`, wrappear `ssh_key` en quotes: `"ssh -i '#{ssh_key}'"`
+  2. O validar que path no contenga espacios (raise con mensaje claro)
+  3. Test con path que contiene espacios
+- **Verificación**: `mix test test/trebejo/git/local_test.exs`
+- **Impacto**: 🟡 MEDIO (afecta a delfos que configura SSH keys)
+
+### TRE-28: `existing_repos/1` fragile pattern matching
+- **Hallazgo** (`AUDIT.md` §P2 #10): `git/local.ex:88-101` matchea tuplas de 2 y 3 elementos silenciosamente.
+- **Severidad**: 🟡 P2
+- **Ficheros**: `lib/trebejo/git/local.ex`
+- **Esfuerzo**: 15 min
+- **Pasos**:
+  1. Auditar todos los call sites de `ensure_clone/2` para entender qué retorna
+  2. Reemplazar pattern matching con uno explícito que diferencie `{:repo_exists, _}` vs `{:repo_error, _, _}`
+  3. Logear `{:repo_error, _, reason}` con `Logger.warning`
+- **Verificación**: `mix test test/trebejo/git/local_test.exs`
+- **Impacto**: 🟢 LOCAL
+
+### TRE-29: `compress.ex` — tar flag mixing
+- **Hallazgo** (`AUDIT.md` §P2 #11): `compress.ex:173, 196` mezcla flags bundleados (`"-czvf"`) con long options (`"--zstd"`).
+- **Severidad**: 🟡 P2 (polish)
+- **Ficheros**: `lib/trebejo/compress.ex`
+- **Esfuerzo**: 15 min
+- **Pasos**:
+  1. Reemplazar `"-czvf"` por `["-c", "-z", "-v", "-f"]` y `"-xzvf"` por `["-x", "-z", "-v", "-f"]`
+  2. Tests
+- **Verificación**: `mix test test/trebejo/compress_test.exs`
+- **Impacto**: 🟢 LOCAL
+
+---
+
+## 11. Agrupación por impacto en el ecosistema (2026-07-22)
+
+> **Pregunta**: si hago esta tarea, ¿tengo que tocar otros proyectos o se hace y ya?
+
+### 🟢 LOCAL — "se hace y ya" (15 tareas)
+
+| ID | Tarea |
+|----|-------|
+| TRE-07 | Property tests for compress |
+| TRE-08 | Reduce nesting en `compress.ex` |
+| TRE-11 | Verify `git/local.ex` split worth it |
+| TRE-12 | Fix typos en README/comments |
+| TRE-13 | Translate Spanish comments to English |
+| TRE-14 | Add `@doc` to `Trebejo.Image` |
+| TRE-17 | Tests para `git/local.ex` |
+| TRE-18 | Tests para `compress.ex` (13 wrappers) |
+| TRE-19 | SafeCommand bypassed by all consumers (architecture fix) |
+| TRE-23 | macOS `logs/2` predicate interpolation guard |
+| TRE-24 | Typespec fixes (4 archivos) |
+| TRE-25 | Replace tautological test assertions |
+| TRE-26 | Property tests para `Util.shell_quote/1` |
+| TRE-28 | `existing_repos/1` fragile pattern matching |
+| TRE-29 | `compress.ex` tar flag mixing |
+
+**Workflow**: branch en `trebejo` → tests → commit → push.
+
+---
+
+### 🟡 MEDIO — "verificar 1-2 consumidores" (6 tareas)
+
+| ID | Tarea | Consumidores | Smoke test |
+|----|-------|--------------|------------|
+| TRE-10 | Tests for `safe_command.ex shell_quote/1` | delfos (via SafeCommand) | `cd ../delfos && mix test` |
+| TRE-16 | Split `compress.ex` (428 LoC, 13 wrappers) | botica, delfos (vía Compress) | `cd ../botica && mix test` + `cd ../delfos && mix test` |
+| TRE-20 | Fix `Docker.compose_ps/1` broken pipe | delfos (vía Docker) | `cd ../delfos && mix test` |
+| TRE-21 | Fix `Git.Local.clone_repository/2` inconsistency | delfos (vía git) | `cd ../delfos && mix test` |
+| TRE-22 | Password on argv (side-channel leak) — security | delfos, botica (vía Compress) | `cd ../delfos && mix test` |
+| TRE-27 | `setup_ssh_key/1` path-with-spaces risk | delfos (vía git SSH) | `cd ../delfos && mix test` |
+
+**Workflow**: branch en `trebejo` → tests propios → smoke test → merge.
+
+---
+
+### 🔴 CRÍTICO — "branch dedicada + smoke tests en TODOS" (1 tarea)
+
+| ID | Tarea | Consumidores | Blast radius |
+|----|-------|--------------|--------------|
+| **TRE-15** | Split `git/local.ex` (825 LoC) | delfos (vía `Trebejo.Git.Local.churn/2`, clone, etc.) | Delfos depende de git churn |
+
+**Workflow**:
+1. Branch dedicada: `refactor/tre-15-git-split`
+2. Tests exhaustivos (la fachada `Local` debe mantener API 100%)
+3. Smoke test obligatorio: `cd ../delfos && mix deps.get && mix compile --warnings-as-errors && mix test`
+
+---
+
+### 📊 Matriz resumen
+
+| Impacto | # tareas | Esfuerzo | Branch dedicada | Smoke tests externos |
+|---------|----------|----------|-----------------|----------------------|
+| 🟢 LOCAL | 15 | ~14h | No | 0 proyectos |
+| 🟡 MEDIO | 6 | ~9h | No (en trebejo) | 1-2 proyectos |
+| 🔴 CRÍTICO | 1 | ~11h | **Sí** | **1 proyecto (delfos)** |
+| **Total** | **22** | **~34h** | — | — |
+
+### 🎯 Orden de ejecución sugerido
+
+1. **Quick wins LOCAL** (1h): TRE-12, TRE-13, TRE-14, TRE-29
+2. **Bug fixes LOCAL** (3h): TRE-19 (SafeCommand architecture), TRE-23 (predicate guard), TRE-24 (typespecs), TRE-27 (path-with-spaces — pero está en MEDIO), TRE-28 (pattern matching)
+3. **Test quality LOCAL** (4-5h): TRE-25 (replace tautological), TRE-26 (shell_quote property tests), TRE-17, TRE-18
+4. **Coverage** (1-2h): TRE-07 (compress properties), TRE-08 (nesting)
+5. **MEDIO con smoke tests** (8-9h): TRE-10, TRE-16, TRE-20, TRE-21, TRE-22, TRE-27
+6. **CRÍTICO** (10-12h): TRE-15 — split `git/local.ex` con smoke test en delfos
