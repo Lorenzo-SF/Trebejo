@@ -4,7 +4,7 @@
 > **Auditoría original**: `AUDIT.md` (2026-07-19)
 > **Auditoría complementaria**: revisión tras batch de calidad (2026-07-21)
 > **Auditoría complementaria v2**: revisión + agrupación por impacto (2026-07-22)
-> **Estado**: 5/5 comandos pasan. Pendientes: refactors gordos + tests.
+> **Estado final**: 5/5 comandos pasan. **Proyecto cerrado** — bug fixes/polish completos; TRE-15 (Git.Local split) y TRE-16 (Compress split) son refactors pendientes. TRE-15 tiene Credentials extraído (setup parcial).
 
 ---
 
@@ -500,3 +500,26 @@ NO bumpear versión.
 4. **Coverage** (1-2h): TRE-07 (compress properties), TRE-08 (nesting)
 5. **MEDIO con smoke tests** (8-9h): TRE-10, TRE-16, TRE-20, TRE-21, TRE-22, TRE-27
 6. **CRÍTICO** (10-12h): TRE-15 — split `git/local.ex` con smoke test en delfos
+
+---
+
+## 10. Cierre del proyecto (2026-07-22)
+
+### ✅ Tareas implementadas
+
+Ver §2-§9 para el detalle de las 11 tareas del AUDIT v2 aplicadas (TRE-19..TRE-29).
+
+### 🟢 Cierre del proyecto
+
+**trebejo está cerrado** en cuanto a bugs, polish, y coverage. Las tareas restantes son **2 refactors estructurales gordos** (TRE-15 Git.Local split 825 LoC, TRE-16 Compress split 428 LoC) que requieren sesiones dedicadas.
+
+**Refactor TRE-15 parcial**: `Trebejo.Git.Credentials` extraído como módulo standalone (no usado todavía). La integración completa en `Git.Local` queda pendiente para una sesión dedicada con blast radius planning (afecta delfos).
+
+### ❌ Pendientes (2 tareas)
+
+| Tarea | Tipo | Estimación |
+|-------|------|------------|
+| **TRE-15** Split `Git.Local` (825 LoC) | CRÍTICO | 10-12h |
+| **TRE-16** Split `Compress` (428 LoC, 13 wrappers) | MEDIO | 4-6h |
+
+**Total esfuerzo restante**: ~14-18h.
