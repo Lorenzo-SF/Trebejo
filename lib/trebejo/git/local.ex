@@ -103,9 +103,6 @@ defmodule Trebejo.Git.Local do
     Sync.sync(repos)
   end
 
-  @doc """
-  Synchronises a single repository: checkout main branch, fetch, then pull.
-  """
   @spec sync(map()) :: {:ok, map()} | {:error, any()}
   def sync(repo) do
     Sync.sync(repo)

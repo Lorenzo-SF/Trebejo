@@ -13,9 +13,6 @@ defmodule Trebejo.Git.Local.Sync do
     Enum.each(repos, &sync/1)
   end
 
-  @doc """
-  Synchronises a single repository: checkout main branch, fetch, then pull.
-  """
   @spec sync(map()) :: {:ok, map()} | {:error, any()}
   def sync(%{path: _path} = repo) do
     with {:ok, repo} <- Local.checkout(repo),
