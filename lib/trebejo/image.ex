@@ -4,8 +4,8 @@ defmodule Trebejo.Image do
   and format conversion via external tools.
 
   These functions wrap external CLI tools (`img2sixel`, `img2txt`,
-  ImageMagick's `convert`) through `Arrea.Command.execute/2` for
-  consistent timeout handling and structured errors.
+  ImageMagick's `convert`) through `Trebejo.Util.run_cmd_legacy/3`
+  with arg lists — never interpolated into shell strings.
 
   ## Available tools
 
@@ -16,7 +16,7 @@ defmodule Trebejo.Image do
   | `convert`    | Image format conversion     | Non-PNG image loading           |
   """
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @doc """
   Renders an image to sixel format using `img2sixel`.
@@ -28,14 +28,9 @@ defmodule Trebejo.Image do
           {:ok, String.t()} | {:error, String.t()} | :tool_not_found
   def render_sixel(path, width, height) do
     if System.find_executable("img2sixel") do
-      case Command.execute(
-             ["img2sixel", "-w", to_string(width), "-h", to_string(height), path],
-             validate: false
-           ) do
-        {:ok, %{stdout: out, exit_code: 0}} -> {:ok, out}
-        {:ok, %{stderr: err}} -> {:error, String.slice(err, 0, 200)}
-        {:error, reason} -> {:error, "#{reason}"}
-        _ -> :tool_not_found
+      case Util.run_cmd_legacy("img2sixel", ["-w", to_string(width), "-h", to_string(height), path]) do
+        {out, 0} -> {:ok, out}
+        {err, _} -> {:error, String.slice(err, 0, 200)}
       end
     else
       :tool_not_found
@@ -52,14 +47,9 @@ defmodule Trebejo.Image do
           {:ok, String.t()} | {:error, String.t()} | :tool_not_found
   def image_to_ascii(path, width) do
     if System.find_executable("img2txt") do
-      case Command.execute(
-             ["img2txt", "-W", to_string(width), path],
-             validate: false
-           ) do
-        {:ok, %{stdout: out, exit_code: 0}} -> {:ok, out}
-        {:ok, %{stderr: err}} -> {:error, String.slice(err, 0, 200)}
-        {:error, reason} -> {:error, "#{reason}"}
-        _ -> :tool_not_found
+      case Util.run_cmd_legacy("img2txt", ["-W", to_string(width), path]) do
+        {out, 0} -> {:ok, out}
+        {err, _} -> {:error, String.slice(err, 0, 200)}
       end
     else
       :tool_not_found
@@ -82,14 +72,9 @@ defmodule Trebejo.Image do
       safe_path = if String.starts_with?(path, "-"), do: "./#{path}", else: path
       tmp = Path.expand("/tmp/alaja_img_#{:erlang.unique_integer([:positive])}.png")
 
-      case Command.execute(
-             ["convert", safe_path, "-resize", "#{target_w}x#{target_h}>", tmp],
-             validate: false
-           ) do
-        {:ok, %{exit_code: 0}} -> {:ok, tmp}
-        {:ok, %{stderr: err}} -> {:error, String.slice(err, 0, 200)}
-        {:error, reason} -> {:error, "#{reason}"}
-        {:ok, _} -> {:error, "convert failed"}
+      case Util.run_cmd_legacy("convert", [safe_path, "-resize", "#{target_w}x#{target_h}>", tmp]) do
+        {_out, 0} -> {:ok, tmp}
+        {err, _} -> {:error, String.slice(err, 0, 200)}
       end
     else
       :tool_not_found

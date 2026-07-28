@@ -1,43 +1,19 @@
 defmodule Trebejo.OS do
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @moduledoc """
-  Operating system information utilities for Apero.
+  Operating system information utilities (shell-based).
 
-  Provides a unified interface for querying system metadata regardless of
-  the underlying platform (Linux, macOS, Windows).
+  Provides shell-dependent system metadata queries: architecture, kernel
+  version, CPU count, memory, and root check. For pure OS detection
+  (type, hostname, distro, WSL, container) use `Apero.OS` directly.
 
   All command execution is routed through `Arrea.Command.execute/2`
-  with `validate: false` (these are read-only info commands; no need
-  to pay the per-call safety-validation cost). Use `LC_ALL=C` env on
-  locale-sensitive commands (nproc, sysctl) for stable output parsing
-  on non-English locales.
-
-  ## Example
-
-      iex> info = Trebejo.OS.info()
-      iex> info.type in [:linux, :macos, :windows, :unknown]
-      true
-
+  with `validate: false`.
   """
 
   @type os_type :: :linux | :macos | :windows | :unknown
   @type arch :: :x86_64 | :arm64 | :arm | :i386 | :unknown
-
-  @doc """
-  Returns the operating system type.
-
-  Possible values: `:linux`, `:macos`, `:windows`, `:unknown`.
-  """
-  @spec type() :: os_type()
-  def type do
-    case :os.type() do
-      {:unix, :darwin} -> :macos
-      {:unix, :linux} -> :linux
-      {:win32, _} -> :windows
-      _ -> :unknown
-    end
-  end
 
   @doc """
   Returns the CPU architecture of the current machine.
@@ -57,15 +33,6 @@ defmodule Trebejo.OS do
   defp parse_arch("i386"), do: :i386
   defp parse_arch("i686"), do: :i386
   defp parse_arch(_), do: :unknown
-
-  @doc """
-  Returns the machine hostname.
-  """
-  @spec hostname() :: binary()
-  def hostname do
-    {:ok, hostname} = :inet.gethostname()
-    List.to_string(hostname)
-  end
 
   @doc """
   Returns the OS kernel version string, or `"unknown"` if unavailable.
@@ -88,32 +55,16 @@ defmodule Trebejo.OS do
   end
 
   @doc """
-  Returns the distribution name on Linux (reads `/etc/os-release`),
-  `"macOS"` on Darwin, or `"Windows"` on win32.
-  """
-  @spec distro() :: binary()
-  def distro do
-    case :os.type() do
-      {:unix, :linux} -> read_linux_distro()
-      {:unix, :darwin} -> "macOS"
-      {:win32, _} -> "Windows"
-      _ -> "unknown"
-    end
-  end
-
-  @doc """
   Returns a consolidated map of system information.
 
-  Keys: `:type`, `:arch`, `:hostname`, `:distro`, `:kernel_version`,
-  `:cpu_count`, `:total_memory_mb`.
+  For pure-Elixir fields (type, hostname, distro) call `Apero.OS`
+  directly. Keys: `:arch`, `:kernel_version`, `:cpu_count`,
+  `:total_memory_mb`.
   """
   @spec info() :: map()
   def info do
     %{
-      type: type(),
       arch: arch(),
-      hostname: hostname(),
-      distro: distro(),
       kernel_version: kernel_version(),
       cpu_count: cpu_count(),
       total_memory_mb: total_memory_mb()
@@ -179,47 +130,10 @@ defmodule Trebejo.OS do
     end
   end
 
-  @doc "Returns true if running under WSL (Windows Subsystem for Linux)."
-  @spec wsl?() :: boolean()
-  def wsl? do
-    type() == :linux and
-      (File.exists?("/proc/sys/fs/binfmt_misc/WSLInterop") or
-         String.contains?(System.get_env("PATH", ""), "WSL"))
-  end
-
-  @doc "Returns true if running inside a container (Docker, Podman, LXC)."
-  @spec container?() :: boolean()
-  def container? do
-    File.exists?("/.dockerenv") or
-      File.exists?("/run/.containerenv") or
-      String.contains?(safe_read_cgroup(), "docker") or
-      String.contains?(safe_read_cgroup(), "lxc") or
-      String.contains?(System.get_env("container", ""), "podman")
-  end
-
-  defp safe_read_cgroup do
-    case File.read("/proc/1/cgroup") do
-      {:ok, content} -> content
-      _ -> ""
-    end
-  end
-
   defp uname_m do
     case run_cmd("uname -m") do
       {out, 0} -> String.trim(out)
       _ -> ""
-    end
-  end
-
-  defp read_linux_distro do
-    case File.read("/etc/os-release") do
-      {:ok, content} ->
-        content
-        |> String.split("\n", trim: true)
-        |> Enum.find_value(&find_pretty_name/1) || "Linux"
-
-      _ ->
-        "Linux"
     end
   end
 
@@ -252,13 +166,6 @@ defmodule Trebejo.OS do
     end
   end
 
-  defp find_pretty_name(line) do
-    case String.split(line, "=", parts: 2) do
-      ["PRETTY_NAME", val] -> String.trim(val, "\"")
-      _ -> nil
-    end
-  end
-
   defp find_mem_total(line) do
     case Regex.run(~r/^MemTotal:\s+(\d+)\s+kB/, line) do
       [_, kb] -> div(String.to_integer(kb), 1_024)
@@ -266,16 +173,12 @@ defmodule Trebejo.OS do
     end
   end
 
-  # Runs a shell command via Arrea.Command.execute/2 and returns
-  # the legacy `{output, exit_code}` tuple shape so the existing
-  # `case ... do {out, 0} -> ...; _ -> ...` call sites stay unchanged.
-  # On Arrea failure (timeout, missing binary, etc.) returns
-  # `{"", 1}` so the caller falls through to its fallback branch.
+  # Splits a command string into binary name + args and runs via
+  # Util.run_cmd_legacy. Returns {output, exit_code}. On Arrea
+  # failure returns {"", 1}.
   @spec run_cmd(String.t(), keyword()) :: {String.t(), non_neg_integer()}
   defp run_cmd(cmd, opts \\ []) do
-    case Command.execute(cmd, [validate: false] ++ opts) do
-      {:ok, %{stdout: out, exit_code: code}} -> {out, code}
-      _ -> {"", 1}
-    end
+    [bin | rest] = String.split(cmd)
+    Util.run_cmd_legacy(bin, rest, opts)
   end
 end

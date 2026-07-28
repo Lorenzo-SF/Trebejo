@@ -2,15 +2,15 @@ defmodule Trebejo.Kubernetes do
   @moduledoc """
   Thin wrapper over `kubectl` for common operations.
 
-  All `kubectl` invocations are routed through `Arrea.Command.execute/2`
-  with `validate: false`. Arguments are shell-quoted before being
-  joined into the final command line.
+  All `kubectl` invocations are routed through `Trebejo.Util.run_cmd_legacy/3`
+  with arg lists — never interpolated into shell strings — to prevent
+  shell injection.
 
   For richer Kubernetes integration (CRUD, watchers, label selectors)
   consider using `:k8s` or the official client libraries.
   """
 
-  alias Arrea.Command
+  alias Trebejo.Util
 
   @doc """
   Checks if `kubectl` is available and the cluster responds.
@@ -60,25 +60,10 @@ defmodule Trebejo.Kubernetes do
     end
   end
 
-  # Routes kubectl through Arrea.Command.execute/2 with validate: false.
-  # Returns the legacy {output, exit_code} tuple so the {_, 0} -> ...
-  # pattern matches in the public functions above stay readable. On
-  # Arrea failure (timeout, missing binary) returns {"", 1} so the
-  # caller falls through to the error branch.
+  # Routes kubectl through Util.run_cmd_legacy which gives real timeout
+  # cancellation, telemetry, and structured errors. On Arrea failure
+  # (timeout, missing binary) returns {"", 1}.
   defp run(args) do
-    cmd = ["kubectl" | Enum.map(args, &shell_quote/1)] |> Enum.join(" ")
-
-    case Command.execute(cmd, validate: false) do
-      {:ok, %{stdout: out, exit_code: code}} -> {out, code}
-      _ -> {"", 1}
-    end
-  end
-
-  # Single-quote a string for safe inclusion in a POSIX shell command
-  # line. Replaces internal single quotes with the standard
-  # `'\\''` close-then-reopen pattern.
-  defp shell_quote(str) when is_binary(str) do
-    escaped = String.replace(str, "'", "'\\''")
-    "'#{escaped}'"
+    Util.run_cmd_legacy("kubectl", args)
   end
 end
