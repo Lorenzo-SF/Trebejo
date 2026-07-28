@@ -24,38 +24,75 @@ defmodule Trebejo.DockerTest do
   end
 
   describe "compose operations" do
-    test "up returns an ok or error tuple with binary output" do
-      result = Docker.up()
+    test "compose_up returns an ok or error tuple with binary output" do
+      result = Docker.compose_up()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "down returns an ok or error tuple with binary output" do
-      result = Docker.down()
+    test "compose_down returns an ok or error tuple with binary output" do
+      result = Docker.compose_down()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "restart returns an ok or error tuple with binary output" do
-      result = Docker.restart()
+    test "compose_restart returns an ok or error tuple with binary output" do
+      result = Docker.compose_restart()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "pull returns an ok or error tuple with binary output" do
-      result = Docker.pull()
+    test "compose_pull returns an ok or error tuple with binary output" do
+      result = Docker.compose_pull()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "build returns an ok or error tuple with binary output" do
-      result = Docker.build()
+    test "compose_build returns an ok or error tuple with binary output" do
+      result = Docker.compose_build()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "logs returns an ok or error tuple with binary output" do
-      result = Docker.logs()
+    test "compose_logs returns an ok or error tuple with binary output" do
+      result = Docker.compose_logs()
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
 
-    test "exec returns an ok or error tuple with binary output" do
-      result = Docker.exec("service", ["echo", "hello"])
+    test "compose_exec returns an ok or error tuple with binary output" do
+      result = Docker.compose_exec("service", ["echo", "hello"])
+      assert match?({:ok, _}, result) or match?({:error, _}, result)
+    end
+  end
+
+  describe "container operations" do
+    test "pull returns :ok or {:error, _}" do
+      result = Docker.pull("hello-world:latest")
+      assert result == :ok or match?({:error, _}, result)
+    end
+
+    test "state returns a known atom or error" do
+      result = Docker.state("non-existent-container")
+      assert result in [:running, :stopped, :missing] or match?({:error, _}, result)
+    end
+
+    test "start returns :ok or {:error, _}" do
+      result = Docker.start("non-existent-container")
+      assert result == :ok or match?({:error, _}, result)
+    end
+
+    test "stop returns :ok or {:error, _}" do
+      result = Docker.stop("non-existent-container")
+      assert result == :ok or match?({:error, _}, result)
+    end
+
+    test "rm returns :ok or {:error, _}" do
+      result = Docker.rm("non-existent-container")
+      assert result == :ok or match?({:error, _}, result)
+    end
+
+    test "exec returns {:ok, _} or {:error, _}" do
+      result = Docker.exec("non-existent-container", ["echo", "hello"])
+      assert match?({:ok, _}, result) or match?({:error, _}, result)
+    end
+
+    test "run returns {:ok, _} or {:error, _}" do
+      result = Docker.run(image: "hello-world:latest", detach: true)
       assert match?({:ok, _}, result) or match?({:error, _}, result)
     end
   end

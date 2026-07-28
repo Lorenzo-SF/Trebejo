@@ -3,31 +3,47 @@ defmodule Trebejo.OSTest do
 
   alias Trebejo.OS
 
-  describe "type/0" do
+  # ── Pure functions moved to Apero.OS ─────────────────────────────────
+
+  describe "type/0 (via Apero.OS)" do
     test "returns a known atom" do
-      assert OS.type() in [:linux, :macos, :windows, :unknown]
+      assert Apero.OS.type() in [:linux, :macos, :windows, :unknown]
     end
   end
 
-  describe "arch/0" do
-    test "returns a known atom" do
-      assert OS.arch() in [:x86_64, :arm64, :arm, :i386, :unknown]
-    end
-  end
-
-  describe "hostname/0" do
+  describe "hostname/0 (via Apero.OS)" do
     test "returns a non-empty binary" do
-      hostname = OS.hostname()
+      hostname = Apero.OS.hostname()
       assert is_binary(hostname)
       assert byte_size(hostname) > 0
     end
   end
 
-  describe "distro/0" do
+  describe "distro/0 (via Apero.OS)" do
     test "returns a non-empty binary" do
-      distro = OS.distro()
+      distro = Apero.OS.distro()
       assert is_binary(distro)
       assert byte_size(distro) > 0
+    end
+  end
+
+  describe "wsl?/0 (via Apero.OS)" do
+    test "returns a boolean" do
+      assert is_boolean(Apero.OS.wsl?())
+    end
+  end
+
+  describe "container?/0 (via Apero.OS)" do
+    test "returns a boolean" do
+      assert is_boolean(Apero.OS.container?())
+    end
+  end
+
+  # ── Shell-based operations in Trebejo.OS ──────────────────────────────
+
+  describe "arch/0" do
+    test "returns a known atom" do
+      assert OS.arch() in [:x86_64, :arm64, :arm, :i386, :unknown]
     end
   end
 
@@ -54,11 +70,12 @@ defmodule Trebejo.OSTest do
   end
 
   describe "info/0" do
-    test "returns a map with all expected keys" do
+    test "returns a map with shell-based keys" do
       info = OS.info()
       assert is_map(info)
 
-      for key <- [:type, :arch, :hostname, :distro, :kernel_version, :cpu_count, :total_memory_mb] do
+      # Note: type, hostname, distro are now in Apero.OS, not in Trebejo.OS.info/0
+      for key <- [:arch, :kernel_version, :cpu_count, :total_memory_mb] do
         assert Map.has_key?(info, key), "Missing key: #{key}"
       end
     end
@@ -67,18 +84,6 @@ defmodule Trebejo.OSTest do
   describe "root?/0" do
     test "returns a boolean" do
       assert is_boolean(OS.root?())
-    end
-  end
-
-  describe "wsl?/0" do
-    test "returns a boolean" do
-      assert is_boolean(OS.wsl?())
-    end
-  end
-
-  describe "container?/0" do
-    test "returns a boolean" do
-      assert is_boolean(OS.container?())
     end
   end
 end
