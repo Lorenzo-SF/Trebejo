@@ -40,10 +40,8 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      {:apero, path: "../apero"},
-      # Local path override — CI/CD must set up the same path or use a
-      # published version. See `../arrea/docs/AUDIT.md` for details.
-      {:arrea, path: "../arrea", override: true},
+      {:apero, git: "https://github.com/Lorenzo-SF/apero.git", override: true},
+      {:arrea, git: "https://github.com/Lorenzo-SF/arrea.git", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
