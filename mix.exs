@@ -1,7 +1,7 @@
 defmodule Trebejo.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "2.0.0"
   @source_url "https://github.com/Lorenzo-SF/trebejo"
 
   def project do
@@ -11,6 +11,7 @@ defmodule Trebejo.MixProject do
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      aliases: aliases(),
       name: "Trebejo",
       description:
         "System command wrappers for Elixir — safe Docker, Git, SSH, kubectl, " <>
@@ -39,14 +40,25 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      {:apero, path: "../apero"},
-      # Local path override — CI/CD must set up the same path or use a
-      # published version. See `../arrea/docs/AUDIT.md` for details.
-      {:arrea, path: "../arrea", override: true},
+      {:apero, git: "https://github.com/Lorenzo-SF/apero.git", override: true},
+      {:arrea, git: "https://github.com/Lorenzo-SF/arrea.git", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test}
+    ]
+  end
+
+  defp aliases do
+    [
+      qa: [
+        "format",
+        "compile",
+        "dialyzer",
+        "cmd sh -c 'MIX_ENV=test mix test --cover --exclude external_cmd'",
+        "cmd sh -c 'alaja json \"$(mix credo --format=json)\"'"
+      ],
+      bench: ["cmd sh -c 'echo \"Trebejo has no benchmarks yet; see FASE-2 §TR-8.\"'"]
     ]
   end
 

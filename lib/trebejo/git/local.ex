@@ -639,7 +639,7 @@ defmodule Trebejo.Git.Local do
   @doc """
   Parses churn output.
   """
-  @spec parse_churn_output(binary(), boolean()) :: binary()
+  @spec parse_churn_output(binary(), boolean()) :: [binary()]
   def parse_churn_output(output, _include_authors?) do
     History.parse_churn_output(output, false)
   end
