@@ -112,6 +112,76 @@ defmodule Trebejo.Git.Local.History do
   """
   @spec get_short_commit(binary()) :: {:ok, binary()} | {:error, binary()}
   def get_short_commit(repo_path) do
+    case log(repo_path, ["-1", "--format=%h"]) do
+      {:ok, sha} -> {:ok, String.trim(sha)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns the list of commits between `from_sha` and `to_sha`.
+
+  Equivalent to `git log from_sha..to_sha`.  By default returns a list
+  of `{:ok, sha, message}` tuples, one per commit.
+
+  ## Options
+
+    * `:format` — `:short | :full | :oneline` (default `:short`)
+
+  ## Examples
+
+      iex> Trebejo.Git.Local.History.commits_between(".", "abc123", "HEAD")
+      {:ok, [{"def456", "Fix bug"}, {"ghi789", "Add feature"}]}
+  """
+  @spec commits_between(binary(), binary(), binary(), keyword()) ::
+          {:ok, [{binary(), binary()}]} | {:error, binary()}
+  def commits_between(repo_path, from_sha, to_sha, opts \\ []) do
+    format = Keyword.get(opts, :format, :short)
+
+    format_flag =
+      case format do
+        :short -> "--format=%h %s"
+        :full -> "--format=%H %s%n%b"
+        :oneline -> "--format=%h %s"
+      end
+
+    range = "#{from_sha}..#{to_sha}"
+
+    case log(repo_path, [range, format_flag, "--"]) do
+      {:ok, ""} ->
+        {:ok, []}
+
+      {:ok, output} ->
+        commits =
+          output
+          |> String.split("\n", trim: true)
+          |> Enum.map(&parse_commit_line(&1, format))
+
+        {:ok, commits}
+
+      error ->
+        error
+    end
+  end
+
+  defp parse_commit_line(line, :full) do
+    case String.split(line, "\n", parts: 2) do
+      [first, body] ->
+        [sha, subject] = String.split(first, " ", parts: 2)
+        {sha, "#{subject}\n#{String.trim(body)}"}
+
+      [first] ->
+        [sha, subject] = String.split(first, " ", parts: 2)
+        {sha, subject}
+    end
+  end
+
+  defp parse_commit_line(line, _format) do
+    case String.split(line, " ", parts: 2) do
+      [sha, subject] -> {sha, subject}
+      [sha] -> {sha, ""}
+    end
+  end
     case Local.run_git(["rev-parse", "--short", "HEAD"], cd: repo_path) do
       {:ok, %{exit_code: 0, stdout: output}} -> {:ok, String.trim(output)}
       {:ok, %{stdout: output}} -> {:error, String.trim(output)}
