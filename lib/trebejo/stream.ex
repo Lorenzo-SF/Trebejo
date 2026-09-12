@@ -186,6 +186,11 @@ defmodule Trebejo.Stream do
 
   # port_to_chunks/3 returns either {:halt, port} (port closed) or
   # {[chunk], port} (yield this chunk, keep going).
+  #
+  # We DO NOT close the port on receive-timeout here.  Closing on
+  # idle would kill any long-running command (build logs, `tail -f`)
+  # between bursts of output.  The caller (or the calling process
+  # death) is responsible for closing the port.
   @spec port_to_chunks(port(), :merge | :separate) ::
           {[stream_chunk()], port()} | {:halt, port()}
   defp port_to_chunks(port, stderr_mode) do
@@ -195,9 +200,6 @@ defmodule Trebejo.Stream do
         {[chunk], port}
 
       {^port, {:exit_status, _code}} ->
-        {:halt, port}
-    after
-      Keyword.get([], :_unused, 5_000) ->
         {:halt, port}
     end
   end
