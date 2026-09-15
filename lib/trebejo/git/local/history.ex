@@ -182,12 +182,6 @@ defmodule Trebejo.Git.Local.History do
       [sha] -> {sha, ""}
     end
   end
-    case Local.run_git(["rev-parse", "--short", "HEAD"], cd: repo_path) do
-      {:ok, %{exit_code: 0, stdout: output}} -> {:ok, String.trim(output)}
-      {:ok, %{stdout: output}} -> {:error, String.trim(output)}
-      {:error, reason} -> {:error, inspect(reason)}
-    end
-  end
 
   @doc """
   Gets the current commit hash for a repository.
