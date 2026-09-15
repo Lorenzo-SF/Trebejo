@@ -1,8 +1,8 @@
 defmodule Trebejo.GitHubTest do
   use ExUnit.Case, async: false
 
-  alias Trebejo.Mox
   alias Trebejo.GitHub
+  alias Trebejo.Mox
   alias Trebejo.Runner
 
   setup do
