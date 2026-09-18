@@ -40,8 +40,8 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      {:apero, git: "https://github.com/Lorenzo-SF/apero.git", override: true},
-      {:arrea, git: "https://github.com/Lorenzo-SF/arrea.git", override: true},
+      {:apero, "~> 4.0", override: true},
+      {:arrea, "~> 3.0", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
@@ -70,14 +70,45 @@ defmodule Trebejo.MixProject do
       source_ref: @version,
       extras: ["README.md", "docs/README.es.md", "CHANGELOG.md", "LICENSE.md"],
       groups_for_modules: [
-        Core: [Trebejo, Trebejo.Application],
+        Core: [
+          Trebejo,
+          Trebejo.Application,
+          Trebejo.Error,
+          Trebejo.Runner,
+          Trebejo.SafeCommand,
+          Trebejo.Util,
+          Trebejo.Mox
+        ],
         "System & Platform": [Trebejo.OS, Trebejo.Proc, Trebejo.Packages],
         Containers: [Trebejo.Docker],
         Network: [Trebejo.Network, Trebejo.SSH],
         Orchestration: [Trebejo.Kubernetes],
-        "Source Control": [Trebejo.Git, Trebejo.Git.Local],
+        "Source Control": [
+          Trebejo.Git,
+          Trebejo.Git.Credentials,
+          Trebejo.Git.Local,
+          Trebejo.Git.Local.Branches,
+          Trebejo.Git.Local.Clone,
+          Trebejo.Git.Local.Config,
+          Trebejo.Git.Local.History,
+          Trebejo.Git.Local.Merge,
+          Trebejo.Git.Local.Sync,
+          Trebejo.Git.Local.Utils
+        ],
         "File System": [Trebejo.File, Trebejo.File.IO],
-        Compression: [Trebejo.Compress]
+        Compression: [
+          Trebejo.Compress,
+          Trebejo.Compress.Algorithm,
+          Trebejo.Compress.Format,
+          Trebejo.Compress.Gzip,
+          Trebejo.Compress.Rar,
+          Trebejo.Compress.SevenZ,
+          Trebejo.Compress.Tar,
+          Trebejo.Compress.Zip
+        ],
+        "Cloud & Data": [Trebejo.GitHub, Trebejo.Postgres, Trebejo.Redis],
+        Resilience: [Trebejo.Breaker, Trebejo.Stream],
+        Media: [Trebejo.Image]
       ]
     ]
   end

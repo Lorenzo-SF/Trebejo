@@ -40,7 +40,7 @@ Add `trebejo` to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:trebejo, "~> 1.0.0"}
+    {:trebejo, "~> 2.0"}
   ]
 end
 ```

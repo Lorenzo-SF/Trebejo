@@ -1,8 +1,13 @@
 # Changelog
 
-## Unreleased
+All notable changes to Trebejo are documented in this file.
 
-## [2.0.0] - 2026-08-07
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [2.0.0] - 2026-09-18
 
 ### Added
 
@@ -49,6 +54,9 @@
   binaries (`git`, `docker`, `redis-cli`, `psql`, `gh`) with `@tag
   :integration`. Skip-by-default; run with `mix test --only
   integration`.
+- **`Trebejo.SafeCommand`** — validated wrapper around
+  `Arrea.Command.execute/2`: single entry point for all shell
+  execution with basic safety checks.
 
 ### Changed
 
@@ -64,9 +72,7 @@
 
 ### Removed
 
-- (none)
-
-## Unreleased
+- `Trebejo.SafeCommand.run_legacy/3` — dead code, only referenced in its own docstring. Use `Trebejo.Util.run_cmd_legacy/3` directly.
 
 ### Fixed
 
@@ -75,13 +81,9 @@
 - `Trebejo.Proc.logs/2` body depth reduced to 2 by extracting `logs_linux/2` and `logs_macos/2` helpers; the file-level credo disable for `CyclomaticComplexity` is no longer needed.
 - `Trebejo.Packages.installed?/2` `@spec` tightened from `boolean | {:error, String.t()}` to `boolean()` — no clause actually returns `{:error, _}`.
 
-### Removed
+## [1.0.0] - 2026-07-09
 
-- `Trebejo.SafeCommand.run_legacy/3` — dead code, only referenced in its own docstring. Use `Trebejo.Util.run_cmd_legacy/3` directly.
-
-## 1.0.0 (2026-07-09)
-
-### Initial release
+### Added
 
 Trebejo is the shell-command layer extracted from Apero v2.x.
 
@@ -97,8 +99,6 @@ Trebejo is the shell-command layer extracted from Apero v2.x.
 
 All dependencies on `Arrea.Command` are internal to Trebejo. Apero remains a pure utility library with no Arrea dependency.
 
-## Added safe command wrapper
-
-- Introduced `Trebejo.SafeCommand` to validate and safely execute system commands.
-- Provides `execute/2` with basic safety checks.
-- Updated documentation accordingly.
+[2.0.0]: https://hex.pm/packages/trebejo/2.0.0
+[1.0.0]: https://hex.pm/packages/trebejo/1.0.0
+[Unreleased]: https://github.com/Lorenzo-SF/trebejo/compare/2.0.0...HEAD
