@@ -40,8 +40,11 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      {:apero, "~> 4.0", override: true},
-      {:arrea, "~> 3.0", override: true},
+      # Sibling deps point straight at GitHub: no version bumps to track, no
+      # publish ordering between packages. `MIX_ENV=prod mix hex.publish`
+      # still works if a Hex release is ever needed again.
+      {:apero, github: "Lorenzo-SF/apero", override: true},
+      {:arrea, github: "Lorenzo-SF/arrea", override: true},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
