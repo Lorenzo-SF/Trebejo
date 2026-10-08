@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-08
+
+### Changed
+
+- **Sibling deps point straight at GitHub**: `apero` and `arrea`
+  are now declared as `github: "Lorenzo-SF/apero"` /
+  `github: "Lorenzo-SF/arrea"` with `override: true` (was Hex
+  requirements against `~> 4.0` / `~> 3.0`). The mix.lock has
+  been refreshed to the current `main` SHA of each sibling, so
+  the published library and the in-repo integration test bed
+  stay in lock-step. `MIX_ENV=prod mix hex.publish` still works
+  if a Hex release is ever needed again.
+
 ## [2.0.0] - 2026-09-18
 
 ### Added
@@ -101,4 +114,5 @@ All dependencies on `Arrea.Command` are internal to Trebejo. Apero remains a pur
 
 [2.0.0]: https://hex.pm/packages/trebejo/2.0.0
 [1.0.0]: https://hex.pm/packages/trebejo/1.0.0
-[Unreleased]: https://github.com/Lorenzo-SF/trebejo/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/Lorenzo-SF/trebejo/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/Lorenzo-SF/trebejo/compare/2.0.0...2.1.0
