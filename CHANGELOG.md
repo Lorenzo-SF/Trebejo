@@ -11,14 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Sibling deps point straight at GitHub**: `apero` and `arrea`
-  are now declared as `github: "Lorenzo-SF/apero"` /
-  `github: "Lorenzo-SF/arrea"` with `override: true` (was Hex
-  requirements against `~> 4.0` / `~> 3.0`). The mix.lock has
-  been refreshed to the current `main` SHA of each sibling, so
-  the published library and the in-repo integration test bed
-  stay in lock-step. `MIX_ENV=prod mix hex.publish` still works
-  if a Hex release is ever needed again.
+- **Sibling deps resolved from Hex at their latest releases**:
+  `apero` is now `{:apero, "~> 4.0"}` and `arrea` is
+  `{:arrea, "~> 3.1"}` (was `github: "Lorenzo-SF/apero"` /
+  `github: "Lorenzo-SF/arrea"` with `override: true`). The
+  `override: true` flags are gone — Hex rejects overridden deps
+  at `mix hex.build` time, so they had to be dropped for the
+  package to be publishable. `mix.lock` now resolves
+  `apero 4.1.0`, `arrea 3.1.0` (and transitively `alaja 3.2.0`,
+  `batamanta 3.1.0`, `pote 3.0.0`) from Hex.
 
 ## [2.0.0] - 2026-09-18
 
