@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-08
+
+### Changed
+
+- **Sibling deps resolved from Hex at their latest releases**:
+  `apero` is now `{:apero, "~> 4.0"}` and `arrea` is
+  `{:arrea, "~> 3.1"}` (was `github: "Lorenzo-SF/apero"` /
+  `github: "Lorenzo-SF/arrea"` with `override: true`). The
+  `override: true` flags are gone — Hex rejects overridden deps
+  at `mix hex.build` time, so they had to be dropped for the
+  package to be publishable. `mix.lock` now resolves
+  `apero 4.1.0`, `arrea 3.1.0` (and transitively `alaja 3.2.0`,
+  `batamanta 3.1.0`, `pote 3.0.0`) from Hex.
+
 ## [2.0.0] - 2026-09-18
 
 ### Added
@@ -101,4 +115,5 @@ All dependencies on `Arrea.Command` are internal to Trebejo. Apero remains a pur
 
 [2.0.0]: https://hex.pm/packages/trebejo/2.0.0
 [1.0.0]: https://hex.pm/packages/trebejo/1.0.0
-[Unreleased]: https://github.com/Lorenzo-SF/trebejo/compare/2.0.0...HEAD
+[Unreleased]: https://github.com/Lorenzo-SF/trebejo/compare/2.1.0...HEAD
+[2.1.0]: https://github.com/Lorenzo-SF/trebejo/compare/2.0.0...2.1.0

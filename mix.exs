@@ -1,7 +1,7 @@
 defmodule Trebejo.MixProject do
   use Mix.Project
 
-  @version "2.0.0"
+  @version "2.1.0"
   @source_url "https://github.com/Lorenzo-SF/trebejo"
 
   def project do
@@ -40,11 +40,8 @@ defmodule Trebejo.MixProject do
 
   defp deps do
     [
-      # Sibling deps point straight at GitHub: no version bumps to track, no
-      # publish ordering between packages. `MIX_ENV=prod mix hex.publish`
-      # still works if a Hex release is ever needed again.
-      {:apero, github: "Lorenzo-SF/apero", override: true},
-      {:arrea, github: "Lorenzo-SF/arrea", override: true},
+      {:apero, "~> 4.0"},
+      {:arrea, "~> 3.1"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, ">= 1.0.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
